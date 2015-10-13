@@ -1,0 +1,208 @@
+<!DOCTYPE Project SYSTEM "http://www.slickedit.com/dtd/vse/10.0/vpj.dtd">
+<Project
+    Version="10.0"
+    VendorName="SlickEdit"
+    WorkingDir=".">
+    <Config
+        Name="Release"
+        OutputFile="">
+        <Menu>
+            <Target
+                Name="Build"
+                MenuCaption="&amp;Build"
+                CaptureOutputWith="ProcessBuffer"
+                SaveOption="SaveWorkspaceFiles"
+                RunFromDir="%rw">
+                <Exec CmdLine="make"/>
+            </Target>
+            <Target
+                Name="Rebuild"
+                MenuCaption="&amp;Rebuild"
+                CaptureOutputWith="ProcessBuffer"
+                SaveOption="SaveWorkspaceFiles"
+                RunFromDir="%rw">
+                <Exec CmdLine="make clean &amp;&amp; make"/>
+            </Target>
+            <Target
+                Name="PCLint"
+                MenuCaption="&amp;PCLint"
+                RunFromDir="%rw">
+                <Exec CmdLine="S:\Apps\PCLint -u %f"/>
+            </Target>
+        </Menu>
+    </Config>
+    <CompatibleVersions>
+        <PrevVersion VersionNumber="9.0"/>
+        <PrevVersion VersionNumber="9.1"/>
+    </CompatibleVersions>
+    <Files AutoFolders="DirectoryView">
+        <Folder Name="src">
+            <Folder Name="fw">
+                <F N="src/fw/acpi-dsdt-cpu-hotplug.dsl"/>
+                <F N="src/fw/acpi-dsdt-dbug.dsl"/>
+                <F N="src/fw/acpi-dsdt-hpet.dsl"/>
+                <F N="src/fw/acpi-dsdt-isa.dsl"/>
+                <F N="src/fw/acpi-dsdt-pci-crs.dsl"/>
+                <F N="src/fw/acpi-dsdt.dsl"/>
+                <F N="src/fw/acpi.c"/>
+                <F N="src/fw/biostables.c"/>
+                <F N="src/fw/coreboot.c"/>
+                <F N="src/fw/csm.c"/>
+                <F N="src/fw/dev-piix.h"/>
+                <F N="src/fw/dev-q35.h"/>
+                <F N="src/fw/lzmadecode.c"/>
+                <F N="src/fw/lzmadecode.h"/>
+                <F N="src/fw/mptable.c"/>
+                <F N="src/fw/mtrr.c"/>
+                <F N="src/fw/multiboot.c"/>
+                <F N="src/fw/paravirt.c"/>
+                <F N="src/fw/paravirt.h"/>
+                <F N="src/fw/pciinit.c"/>
+                <F N="src/fw/pirtable.c"/>
+                <F N="src/fw/q35-acpi-dsdt.dsl"/>
+                <F N="src/fw/romfile_loader.c"/>
+                <F N="src/fw/romfile_loader.h"/>
+                <F N="src/fw/shadow.c"/>
+                <F N="src/fw/smbios.c"/>
+                <F N="src/fw/smm.c"/>
+                <F N="src/fw/smp.c"/>
+                <F N="src/fw/ssdt-misc.dsl"/>
+                <F N="src/fw/ssdt-pcihp.dsl"/>
+                <F N="src/fw/ssdt-proc.dsl"/>
+                <F N="src/fw/xen.c"/>
+                <F N="src/fw/xen.h"/>
+            </Folder>
+            <Folder Name="hw">
+                <F N="src/hw/ahci.c"/>
+                <F N="src/hw/ahci.h"/>
+                <F N="src/hw/ata.c"/>
+                <F N="src/hw/ata.h"/>
+                <F N="src/hw/blockcmd.c"/>
+                <F N="src/hw/blockcmd.h"/>
+                <F N="src/hw/dma.c"/>
+                <F N="src/hw/esp-scsi.c"/>
+                <F N="src/hw/esp-scsi.h"/>
+                <F N="src/hw/floppy.c"/>
+                <F N="src/hw/lsi-scsi.c"/>
+                <F N="src/hw/lsi-scsi.h"/>
+                <F N="src/hw/megasas.c"/>
+                <F N="src/hw/megasas.h"/>
+                <F N="src/hw/pci.c"/>
+                <F N="src/hw/pci.h"/>
+                <F N="src/hw/pci_ids.h"/>
+                <F N="src/hw/pci_regs.h"/>
+                <F N="src/hw/pic.c"/>
+                <F N="src/hw/pic.h"/>
+                <F N="src/hw/ps2port.c"/>
+                <F N="src/hw/ps2port.h"/>
+                <F N="src/hw/pvscsi.c"/>
+                <F N="src/hw/pvscsi.h"/>
+                <F N="src/hw/ramdisk.c"/>
+                <F N="src/hw/rtc.c"/>
+                <F N="src/hw/rtc.h"/>
+                <F N="src/hw/sdcard.c"/>
+                <F N="src/hw/serialio.c"/>
+                <F N="src/hw/serialio.h"/>
+                <F N="src/hw/timer.c"/>
+                <F N="src/hw/tpm_drivers.c"/>
+                <F N="src/hw/tpm_drivers.h"/>
+                <F N="src/hw/usb-ehci.c"/>
+                <F N="src/hw/usb-ehci.h"/>
+                <F N="src/hw/usb-hid.c"/>
+                <F N="src/hw/usb-hid.h"/>
+                <F N="src/hw/usb-hub.c"/>
+                <F N="src/hw/usb-hub.h"/>
+                <F N="src/hw/usb-msc.c"/>
+                <F N="src/hw/usb-msc.h"/>
+                <F N="src/hw/usb-ohci.c"/>
+                <F N="src/hw/usb-ohci.h"/>
+                <F N="src/hw/usb-uas.c"/>
+                <F N="src/hw/usb-uas.h"/>
+                <F N="src/hw/usb-uhci.c"/>
+                <F N="src/hw/usb-uhci.h"/>
+                <F N="src/hw/usb-xhci.c"/>
+                <F N="src/hw/usb-xhci.h"/>
+                <F N="src/hw/usb.c"/>
+                <F N="src/hw/usb.h"/>
+                <F N="src/hw/virtio-blk.c"/>
+                <F N="src/hw/virtio-blk.h"/>
+                <F N="src/hw/virtio-pci.c"/>
+                <F N="src/hw/virtio-pci.h"/>
+                <F N="src/hw/virtio-ring.c"/>
+                <F N="src/hw/virtio-ring.h"/>
+                <F N="src/hw/virtio-scsi.c"/>
+                <F N="src/hw/virtio-scsi.h"/>
+            </Folder>
+            <Folder Name="std">
+                <F N="src/std/acpi.h"/>
+                <F N="src/std/bda.h"/>
+                <F N="src/std/disk.h"/>
+                <F N="src/std/LegacyBios.h"/>
+                <F N="src/std/mptable.h"/>
+                <F N="src/std/multiboot.h"/>
+                <F N="src/std/optionrom.h"/>
+                <F N="src/std/pirtable.h"/>
+                <F N="src/std/pmm.h"/>
+                <F N="src/std/pnpbios.h"/>
+                <F N="src/std/smbios.h"/>
+                <F N="src/std/vbe.h"/>
+            </Folder>
+            <F N="src/apm.c"/>
+            <F N="src/asm-offsets.c"/>
+            <F N="src/biosvar.h"/>
+            <F N="src/block.c"/>
+            <F N="src/block.h"/>
+            <F N="src/bmp.c"/>
+            <F N="src/boot.c"/>
+            <F N="src/bootsplash.c"/>
+            <F N="src/bregs.h"/>
+            <F N="src/byteorder.h"/>
+            <F N="src/cdrom.c"/>
+            <F N="src/clock.c"/>
+            <F N="src/config.h"/>
+            <F N="src/disk.c"/>
+            <F N="src/entryfuncs.S"/>
+            <F N="src/farptr.h"/>
+            <F N="src/font.c"/>
+            <F N="src/gen-defs.h"/>
+            <F N="src/jpeg.c"/>
+            <F N="src/kbd.c"/>
+            <F N="src/Kconfig"/>
+            <F N="src/list.h"/>
+            <F N="src/malloc.c"/>
+            <F N="src/malloc.h"/>
+            <F N="src/memmap.c"/>
+            <F N="src/memmap.h"/>
+            <F N="src/misc.c"/>
+            <F N="src/mouse.c"/>
+            <F N="src/optionroms.c"/>
+            <F N="src/output.c"/>
+            <F N="src/output.h"/>
+            <F N="src/pcibios.c"/>
+            <F N="src/pmm.c"/>
+            <F N="src/pnpbios.c"/>
+            <F N="src/post.c"/>
+            <F N="src/resume.c"/>
+            <F N="src/romfile.c"/>
+            <F N="src/romfile.h"/>
+            <F N="src/romlayout.S"/>
+            <F N="src/serial.c"/>
+            <F N="src/sha1.c"/>
+            <F N="src/sha1.h"/>
+            <F N="src/stacks.c"/>
+            <F N="src/stacks.h"/>
+            <F N="src/string.c"/>
+            <F N="src/string.h"/>
+            <F N="src/system.c"/>
+            <F N="src/tcgbios.c"/>
+            <F N="src/tcgbios.h"/>
+            <F N="src/types.h"/>
+            <F N="src/util.h"/>
+            <F N="src/vgahooks.c"/>
+            <F N="src/x86.c"/>
+            <F N="src/x86.h"/>
+        </Folder>
+        <F N="Makefile"/>
+        <F N="README"/>
+    </Files>
+</Project>

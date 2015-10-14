@@ -12,10 +12,8 @@
 
 struct bmp_decdata {
     struct tagRGBQUAD *quadp;
+    image_t img;
     unsigned char *datap;
-    int width;
-    int height;
-    int bpp;
 };
 
 #define bmp_load4byte(addr) (*(u32 *)(addr))
@@ -50,22 +48,6 @@ typedef struct tagRGBQUAD {
     u8 rgbReserved;
 } RGBQUAD, tagRGBQUAD;
 
-/* flat picture data adjusting function
-* description:
-*   switch the vertical line sequence
-*   arrange horizontal pixel data, add extra space in the dest buffer
-*       for every line
-*/
-static void raw_data_format_adjust_24bpp(u8 *src, u8 *dest, int width,
-                                        int height, int bytes_per_line_dest)
-{
-    int bytes_per_line_src = 3 * width;
-    int i;
-    for (i = 0 ; i < height ; i++) {
-        memcpy(dest + i * bytes_per_line_dest,
-           src + (height - 1 - i) * bytes_per_line_src, bytes_per_line_src);
-    }
-}
 
 /* allocate decdata struct */
 struct bmp_decdata *bmp_alloc(void)
@@ -75,7 +57,7 @@ struct bmp_decdata *bmp_alloc(void)
 }
 
 /* extract information from bmp file data */
-int bmp_decode(struct bmp_decdata *bmp, unsigned char *data, int data_size)
+int bmp_decode(struct bmp_decdata *bmp, uint8_t *data, int data_size)
 {
     if (data_size < 54)
         return 1;
@@ -87,31 +69,34 @@ int bmp_decode(struct bmp_decdata *bmp, unsigned char *data, int data_size)
     if (bmp_recordsize != data_size)
         return 3;
     u32 bmp_dataoffset = bmp_load4byte(data + 10);
-    bmp->datap = (unsigned char *)data + bmp_dataoffset;
-    bmp->width = bmp_load4byte(data + 18);
-    bmp->height = bmp_load4byte(data + 22);
-    bmp->bpp = bmp_load2byte(data + 28);
+
+    int width  = bmp_load4byte(data + 18);
+    int height = bmp_load4byte(data + 22);
+    int bpp    = bmp_load2byte(data + 28);
+
+    if (bpp != 24) {
+        /* only support 24 bit BGR */
+        return 4;
+    }
+
+    if (image_init(&bmp->img, PIXFMT_24_B8_G8_R8, width, height, width * 3,
+                   data + bmp_dataoffset) != 0) {
+        return 5;
+    }
     return 0;
 }
 
 /* get bmp properties */
-void bmp_get_size(struct bmp_decdata *bmp, int *width, int *height)
+void bmp_get_size(struct bmp_decdata *bmp, int *width, int *height, int *bpp)
 {
-    *width = bmp->width;
-    *height = bmp->height;
+    *width  = bmp->img.width;
+    *height = bmp->img.height;
+    *bpp    = image_pixel_size(&bmp->img) * 8;
 }
 
-/* flush flat picture data to *pc */
-int bmp_show(struct bmp_decdata *bmp, unsigned char *pic, int width
-             , int height, int depth, int bytes_per_line_dest)
+
+/* extract the bitmap to an image surface */
+int bmp_copy_to_image(struct bmp_decdata *bmp, image_t *dst_img)
 {
-    if (bmp->datap == pic)
-        return 0;
-    /* now only support 24bpp bmp file */
-    if ((depth == 24) && (bmp->bpp == 24)) {
-        raw_data_format_adjust_24bpp(bmp->datap, pic, width, height,
-                                        bytes_per_line_dest);
-        return 0;
-    }
-    return 1;
+    return image_blit(dst_img, &bmp->img, 1);
 }

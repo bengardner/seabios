@@ -155,34 +155,34 @@ putuint(struct putcinfo *action, u32 val)
 
 // Output a single digit hex character.
 static inline void
-putsinglehex(struct putcinfo *action, u32 val)
+putsinglehex(struct putcinfo *action, u32 val, int is_upper_case)
 {
     if (val <= 9)
         val = '0' + val;
     else
-        val = 'a' + val - 10;
+        val = (is_upper_case ? 'A' : 'a') + val - 10;
     putc(action, val);
 }
 
 // Output an integer in hexadecimal with a specified width.
 static void
-puthex(struct putcinfo *action, u32 val, int width)
+puthex(struct putcinfo *action, u32 val, int width, int is_upper_case)
 {
     switch (width) {
-    default: putsinglehex(action, (val >> 28) & 0xf);
-    case 7:  putsinglehex(action, (val >> 24) & 0xf);
-    case 6:  putsinglehex(action, (val >> 20) & 0xf);
-    case 5:  putsinglehex(action, (val >> 16) & 0xf);
-    case 4:  putsinglehex(action, (val >> 12) & 0xf);
-    case 3:  putsinglehex(action, (val >> 8) & 0xf);
-    case 2:  putsinglehex(action, (val >> 4) & 0xf);
-    case 1:  putsinglehex(action, (val >> 0) & 0xf);
+    default: putsinglehex(action, (val >> 28) & 0xf, is_upper_case);
+    case 7:  putsinglehex(action, (val >> 24) & 0xf, is_upper_case);
+    case 6:  putsinglehex(action, (val >> 20) & 0xf, is_upper_case);
+    case 5:  putsinglehex(action, (val >> 16) & 0xf, is_upper_case);
+    case 4:  putsinglehex(action, (val >> 12) & 0xf, is_upper_case);
+    case 3:  putsinglehex(action, (val >> 8) & 0xf, is_upper_case);
+    case 2:  putsinglehex(action, (val >> 4) & 0xf, is_upper_case);
+    case 1:  putsinglehex(action, (val >> 0) & 0xf, is_upper_case);
     }
 }
 
 // Output an integer in hexadecimal with a minimum width.
 static void
-putprettyhex(struct putcinfo *action, u32 val, int width, char padchar)
+putprettyhex(struct putcinfo *action, u32 val, int width, char padchar, int is_upper_case)
 {
     u32 tmp = val;
     int count = 1;
@@ -191,7 +191,7 @@ putprettyhex(struct putcinfo *action, u32 val, int width, char padchar)
     width -= count;
     while (width-- > 0)
         putc(action, padchar);
-    puthex(action, val, count);
+    puthex(action, val, count, is_upper_case);
 }
 
 static inline int
@@ -262,19 +262,20 @@ bvprintf(struct putcinfo *action, const char *fmt, va_list args)
             val = va_arg(args, s32);
             putc(action, '0');
             putc(action, 'x');
-            puthex(action, val, 8);
+            puthex(action, val, 8, 0);
             break;
         case 'x':
+        case 'X':
             val = va_arg(args, s32);
             if (is64) {
                 u32 upper = va_arg(args, s32);
                 if (upper) {
-                    putprettyhex(action, upper, field_width - 8, padchar);
-                    puthex(action, val, 8);
+                    putprettyhex(action, upper, field_width - 8, padchar, (c == 'X'));
+                    puthex(action, val, 8, (c == 'X'));
                     break;
                 }
             }
-            putprettyhex(action, val, field_width, padchar);
+            putprettyhex(action, val, field_width, padchar, (c == 'X'));
             break;
         case 'c':
             val = va_arg(args, int);
@@ -326,7 +327,7 @@ __dprintf(const char *fmt, ...)
         if (cur != &MainThread) {
             // Show "thread id" for this debug message.
             debug_putc(&debuginfo, '|');
-            puthex(&debuginfo, (u32)cur, 8);
+            puthex(&debuginfo, (u32)cur, 8, 0);
             debug_putc(&debuginfo, '|');
             debug_putc(&debuginfo, ' ');
         }
@@ -428,12 +429,12 @@ hexdump(const void *d, int len)
     while (len > 0) {
         if (count % 8 == 0) {
             putc(&debuginfo, '\n');
-            puthex(&debuginfo, count*4, 8);
+            puthex(&debuginfo, count*4, 8, 0);
             putc(&debuginfo, ':');
         } else {
             putc(&debuginfo, ' ');
         }
-        puthex(&debuginfo, *(u32*)d, 8);
+        puthex(&debuginfo, *(u32*)d, 8, 0);
         count++;
         len-=4;
         d+=4;

@@ -164,7 +164,11 @@
             <F N="src/entryfuncs.S"/>
             <F N="src/farptr.h"/>
             <F N="src/font.c"/>
+            <F N="src/font8x16x1.c"/>
+            <F N="src/font8x16x1.h"/>
             <F N="src/gen-defs.h"/>
+            <F N="src/image.c"/>
+            <F N="src/image.h"/>
             <F N="src/jpeg.c"/>
             <F N="src/kbd.c"/>
             <F N="src/Kconfig"/>

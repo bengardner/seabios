@@ -525,7 +525,7 @@ interactive_bootmenu(void)
     free(bootmsg);
 
     u32 menutime = romfile_loadint("etc/boot-menu-wait", DEFAULT_BOOTMENU_WAIT);
-    enable_bootsplash();
+    enable_bootsplash(menukey_text);
     int scan_code = get_keystroke(menutime);
 
     /* F1 will freeze the bootsplash and reboot after the next keypress */

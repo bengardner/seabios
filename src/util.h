@@ -39,7 +39,7 @@ int bootprio_find_usb(struct usbdevice_s *usbdev, int lun);
 
 // bootsplash.c
 void enable_vga_console(void);
-void enable_bootsplash(void);
+void enable_bootsplash(const char *menukey_text);
 void disable_bootsplash(void);
 int get_bootsplash_active(void);
 void bootsplash_show_paused(void);

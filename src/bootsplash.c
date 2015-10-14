@@ -254,7 +254,7 @@ static void print_bios_info(void)
 }
 
 static void
-bootsplash_write_dynamic_text(struct vbe_mode_info *mode_info, const char *menukey_text)
+bootsplash_enable_dynamic_text(struct vbe_mode_info *mode_info)
 {
     image_t img;
     font_t  font;
@@ -268,8 +268,6 @@ bootsplash_write_dynamic_text(struct vbe_mode_info *mode_info, const char *menuk
                           img.width - (4 * font.width),
                           (img.height / 2)) != 0))
         return;
-
-    bs_status_printf("Press %s to select a boot device. Hit F1 to freeze this screen.", menukey_text);
 }
 //#endif // #if CONFIG_BOOTSPLASH_DYNAMIC_TEXT
 
@@ -362,8 +360,10 @@ void bs_clear(void)
 {
     textbox_clear(&g_textbox);
 }
+
+
 static void
-_enable_bootsplash(const char *menukey_text)
+_enable_bootsplash(void)
 {
     if (!CONFIG_BOOTSPLASH)
         return;
@@ -510,7 +510,7 @@ _enable_bootsplash(const char *menukey_text)
     dprintf(5, "Bootsplash copy complete\n");
     BootsplashActive = 1;
 
-    bootsplash_write_dynamic_text(mode_info, menukey_text);
+    bootsplash_enable_dynamic_text(mode_info);
 
 done:
     free(filedata);
@@ -524,8 +524,10 @@ done:
 
 void enable_bootsplash(const char *menukey_text)
 {
-    _enable_bootsplash(menukey_text);
+    _enable_bootsplash();
     print_bios_info();
+    bs_status_printf("Press %s to select a boot device.%s", menukey_text,
+                     BootsplashActive ? " Hit F1 to freeze this screen." : "");
 }
 
 void

@@ -226,6 +226,9 @@ void prepareboot(void);
 void startBoot(void);
 void reloc_preinit(void *f, void *arg);
 
+// resume.c
+void tryReboot(void);
+
 // serial.c
 void serial_setup(void);
 void lpt_setup(void);

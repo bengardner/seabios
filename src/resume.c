@@ -117,8 +117,7 @@ s3_resume(void)
 u8 HaveAttemptedReboot VARLOW;
 
 // Attempt to invoke a hard-reboot.
-static void
-tryReboot(void)
+void tryReboot(void)
 {
     if (HaveAttemptedReboot) {
         // Hard reboot has failed - try to shutdown machine.

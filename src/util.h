@@ -3,6 +3,7 @@
 #define __UTIL_H
 
 #include "types.h" // u32
+#include "image.h"
 
 // apm.c
 void apm_shutdown(void);
@@ -179,6 +180,7 @@ int jpeg_decode(struct jpeg_decdata *jpeg, unsigned char *buf);
 void jpeg_get_size(struct jpeg_decdata *jpeg, int *width, int *height);
 int jpeg_show(struct jpeg_decdata *jpeg, unsigned char *pic, int width
               , int height, int depth, int bytes_per_line_dest);
+int jpeg_copy_to_image(struct jpeg_decdata *jpeg, image_t *img);
 
 // kbd.c
 void kbd_init(void);

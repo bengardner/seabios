@@ -395,6 +395,13 @@ void jpeg_get_size(struct jpeg_decdata *jpeg, int *width, int *height)
     *height = jpeg->height;
 }
 
+int jpeg_copy_to_image(struct jpeg_decdata *jpeg, image_t *img)
+{
+    return jpeg_show(struct jpeg_decdata *jpeg, img->mem, img->width,
+                     img->height, image_pixel_size(img) * 8,
+                     img->pitch);
+}
+
 int jpeg_show(struct jpeg_decdata *jpeg, unsigned char *pic, int width
               , int height, int depth, int bytes_per_line_dest)
 {

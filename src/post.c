@@ -31,6 +31,7 @@
 #include "util.h" // kbd_init
 #include "tcgbios.h" // tpm_*
 
+u64 FirstTimestamp VARFSEG = 0;
 
 /****************************************************************
  * BIOS initialization and hardware setup
@@ -323,6 +324,7 @@ dopost(void)
 void VISIBLE32FLAT
 handle_post(void)
 {
+    FirstTimestamp = rdtscll();
     if (!CONFIG_QEMU && !CONFIG_COREBOOT)
         return;
 

@@ -52,6 +52,7 @@
 u32 TimerKHz VARFSEG = DIV_ROUND_UP(PMTIMER_HZ, 1000 * PMTIMER_TO_PIT);
 u16 TimerPort VARFSEG = PORT_PIT_COUNTER0;
 u8 ShiftTSC VARFSEG;
+u32 CpuKHz VARFSEG;
 
 
 /****************************************************************
@@ -92,9 +93,10 @@ tsctimer_setup(void)
         t = (t + 1) >> 1;
     }
     TimerKHz = DIV_ROUND_UP((u32)t, 1000 * PMTIMER_TO_PIT);
+    CpuKHz = (TimerKHz << ShiftTSC);
     TimerPort = 0;
 
-    dprintf(1, "CPU Mhz=%u\n", (TimerKHz << ShiftTSC) / 1000);
+    dprintf(1, "CPU Mhz=%u\n", CpuKHz / 1000);
 }
 
 // Setup internal timers.

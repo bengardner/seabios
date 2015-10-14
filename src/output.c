@@ -408,6 +408,49 @@ snprintf(char *str, size_t size, const char *fmt, ...)
 }
 
 
+struct countprintfinfo {
+    struct putcinfo info;
+    size_t          size;
+};
+
+static void
+count_str(struct putcinfo *info, char c)
+{
+    struct countprintfinfo *cinfo = container_of(info, struct countprintfinfo, info);
+    cinfo->size++;
+}
+
+int vasprintf(char **strp, const char *fmt, va_list in_args)
+{
+    ASSERT32FLAT();
+    va_list args;
+
+    va_copy(args, in_args);
+    struct countprintfinfo cinfo = { { count_str }, 1 }; // start with 1 for '\0'
+    bvprintf(&cinfo.info, fmt, args);
+    va_end(args);
+
+    char *str = malloc_tmp(cinfo.size);
+    if (!str) {
+        warn_noalloc();
+        return -1;
+    }
+
+    *strp = str;
+    return vsnprintf(str, cinfo.size, fmt, in_args);
+}
+
+
+int asprintf(char **strp, const char *fmt, ...)
+{
+    int rv;
+    va_list args;
+    va_start(args, fmt);
+    rv = vasprintf(strp, fmt, args);
+    va_end(args);
+    return rv;
+}
+
 // Build a formatted string - malloc'ing the memory.
 char *
 znprintf(size_t size, const char *fmt, ...)

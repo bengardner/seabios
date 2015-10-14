@@ -12,6 +12,9 @@ void panic(const char *fmt, ...)
 void printf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
 void vprintf(const char *fmt, va_list args);
+int asprintf(char **strp, const char *fmt, ...)
+    __attribute__ ((format (printf, 2, 3)));
+int vasprintf(char **strp, const char *fmt, va_list args);
 int snprintf(char *str, size_t size, const char *fmt, ...)
     __attribute__ ((format (printf, 3, 4)));
 int vsnprintf(char *str, size_t size, const char *fmt, va_list args);

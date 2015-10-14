@@ -427,6 +427,7 @@ get_raw_keystroke(void)
 }
 
 // Read a keystroke - waiting up to 'msec' milliseconds.
+// if msec is -1, wait forever for a keystroke
 static int
 get_keystroke(int msec)
 {
@@ -434,7 +435,7 @@ get_keystroke(int msec)
     for (;;) {
         if (check_for_keystroke())
             return get_raw_keystroke();
-        if (irqtimer_check(end))
+        if ((msec != -1) && irqtimer_check(end))
             return -1;
         yield_toirq();
     }

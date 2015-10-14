@@ -23,6 +23,8 @@ u32 malloc_getspace(struct zone_s *zone);
 void malloc_sethandle(u32 data, u32 handle);
 u32 malloc_findhandle(u32 handle);
 
+u32 estimateRamSize_MB(void);
+
 #define MALLOC_DEFAULT_HANDLE 0xFFFFFFFF
 // Minimum alignment of malloc'd memory
 #define MALLOC_MIN_ALIGN 16

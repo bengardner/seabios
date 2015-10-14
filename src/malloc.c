@@ -485,6 +485,20 @@ calcRamSize(void)
     LegacyRamSize = rs >= 1024*1024 ? rs : 1024*1024;
 }
 
+u32 estimateRamSize_MB(void)
+{
+    u32 total_kb = 0;
+    int i;
+    for (i = 0; i < e820_count; i++) {
+        struct e820entry *en = &e820_list[i];
+        if (en->type == E820_RAM) {
+            total_kb += (en->size >> 10);
+        }
+    }
+    // round up to next 128 MB increment: 1965 => 2048
+    return (((total_kb >> 10) + 127) >> 7) << 7;
+}
+
 // Update pointers after code relocation.
 void
 malloc_init(void)

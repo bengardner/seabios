@@ -269,7 +269,7 @@ bootsplash_write_dynamic_text(struct vbe_mode_info *mode_info, const char *menuk
                           (img.height / 2)) != 0))
         return;
 
-    bs_status_print("Press %s to select a boot device. Hit F1 to freeze this screen.", menukey_text);
+    bs_status_printf("Press %s to select a boot device. Hit F1 to freeze this screen.", menukey_text);
 }
 //#endif // #if CONFIG_BOOTSPLASH_DYNAMIC_TEXT
 

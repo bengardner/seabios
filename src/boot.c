@@ -21,6 +21,53 @@
 #include "util.h" // irqtimer_calc
 #include "tcgbios.h" // tpm_*
 
+// scan codes for get_keystroke()
+// these should be elsewhere in a header file.
+#define RAWKEY_ESC               0x01
+#define RAWKEY_1                 0x02
+#define RAWKEY_2                 0x03
+#define RAWKEY_3                 0x04
+#define RAWKEY_4                 0x05
+#define RAWKEY_5                 0x06
+#define RAWKEY_6                 0x07
+#define RAWKEY_7                 0x08
+#define RAWKEY_8                 0x09
+#define RAWKEY_9                 0x0a
+#define RAWKEY_F1                0x3B
+#define RAWKEY_F2                0x3C
+#define RAWKEY_F3                0x3D
+#define RAWKEY_F4                0x3E
+#define RAWKEY_F5                0x3f
+#define RAWKEY_F6                0x40
+#define RAWKEY_F7                0x41
+#define RAWKEY_F8                0x42
+#define RAWKEY_F9                0x43
+#define RAWKEY_F10               0x44
+#define RAWKEY_F11               0x85
+#define RAWKEY_F12               0x86
+
+
+/**
+ * The menukey is encoded such that
+ *    b15- 0 : the 16-bit scan code
+ *    b63-16 : text chars (LSB first)
+ * NOTE: this assumes little-endian, the first char in the text is at
+ * the menukey address +2 bytes. The last byte must be 0.
+ */
+#define MENUKEY_MAKE(_scan, _c1, _c2, _c3, _c4, _c5) \
+    (((u64)(_scan) & 0xffff) \
+     | (((u64)((_c1) & 0xff)) << 16) \
+     | (((u64)((_c2) & 0xff)) << 24) \
+     | (((u64)((_c3) & 0xff)) << 32) \
+     | (((u64)((_c4) & 0xff)) << 40) \
+     | (((u64)((_c5) & 0xff)) << 48))
+#define MENUKEY_ESC              MENUKEY_MAKE(RAWKEY_ESC, 'E', 'S', 'C', 0, 0)
+#define MENUKEY_F1               MENUKEY_MAKE(RAWKEY_F1,  'F', '1', 0, 0, 0)
+#define MENUKEY_F11              MENUKEY_MAKE(RAWKEY_F11, 'F', '1', '1', 0, 0)
+#define MENUKEY_F12              MENUKEY_MAKE(RAWKEY_F12, 'F', '1', '2', 0, 0)
+#define MENUKEY_TEXT(_m)         (((char *)&(_m)) + 2)
+#define MENUKEY_CODE(_m)         ((int)(_m) & 0xffff)
+
 
 /****************************************************************
  * Boot priority ordering
@@ -437,6 +484,13 @@ get_keystroke(int msec)
             return get_raw_keystroke();
         if ((msec != -1) && irqtimer_check(end))
             return -1;
+
+        if (msec == -1) {
+            bs_wait_loop(0);
+        } else {
+            u32 tick_left = TICKS_PER_DAY - ((GET_BDA(timer_counter) + TICKS_PER_DAY - end) % TICKS_PER_DAY);
+            bs_wait_loop(tick_left);
+        }
         yield_toirq();
     }
 }
@@ -461,21 +515,37 @@ interactive_bootmenu(void)
         ;
 
     char *bootmsg = romfile_loadfile("etc/boot-menu-message", NULL);
-    int menukey = romfile_loadint("etc/boot-menu-key", 1);
-    printf("%s", bootmsg ?: "\nPress ESC for boot menu.\n\n");
+    u64 boot_menu_key = romfile_loadint("etc/boot-menu-key", MENUKEY_F12);
+    int menukey_code = MENUKEY_CODE(boot_menu_key);
+    const char *menukey_text = MENUKEY_TEXT(boot_menu_key);
+    if (bootmsg)
+        bs_print(bootmsg);
+    else
+        bs_printf("\nPress %s for boot menu.\n\n", menukey_text);
     free(bootmsg);
 
     u32 menutime = romfile_loadint("etc/boot-menu-wait", DEFAULT_BOOTMENU_WAIT);
     enable_bootsplash();
     int scan_code = get_keystroke(menutime);
-    disable_bootsplash();
-    if (scan_code != menukey)
-        return;
+
+    /* F1 will freeze the bootsplash and reboot after the next keypress */
+    if ((scan_code == RAWKEY_F1) && get_bootsplash_active()) {
+        bootsplash_show_paused();
+        scan_code = get_keystroke(-1);
+        dprintf(1, "Rebooting.\n");
+        tryReboot();
+        // shouldn't get here
+        goto bootsplash_off;
+    }
+
+    if (scan_code != menukey_code)
+        goto bootsplash_off;
 
     while (get_keystroke(0) >= 0)
         ;
 
-    printf("Select boot device:\n\n");
+    bs_clear();
+    bs_print("Select boot device:\n\n");
     wait_threads();
 
     // Show menu items
@@ -484,26 +554,31 @@ interactive_bootmenu(void)
     hlist_for_each_entry(pos, &BootList, node) {
         char desc[60];
         maxmenu++;
-        printf("%d. %s\n", maxmenu
-               , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
+        bs_printf("%d. %s\n", maxmenu, strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
     }
+
+    bs_status_printf("Hit 1 - %d or F1 - F%d to boot or ESC to continue", maxmenu, maxmenu);
 
     // Get key press.  If the menu key is ESC, do not restart boot unless
     // 1.5 seconds have passed.  Otherwise users (trained by years of
     // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
     // multiple times and immediately booting the primary boot device.
-    int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
+    int esc_accepted_time = irqtimer_calc(menukey_code == RAWKEY_ESC ? 1500 : 0);
     for (;;) {
-        scan_code = get_keystroke(1000);
-        if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
+        scan_code = get_keystroke(15000);
+        if (scan_code < 0)
+            goto bootsplash_off;
+        if (scan_code == RAWKEY_ESC && !irqtimer_check(esc_accepted_time))
             continue;
+        // map F1-F9 to 1-9
+        if ((scan_code >= RAWKEY_F1) && (scan_code <= RAWKEY_F9))
+            scan_code = RAWKEY_1 + (scan_code - RAWKEY_F1);
         if (scan_code >= 1 && scan_code <= maxmenu+1)
             break;
     }
     printf("\n");
-    if (scan_code == 0x01)
-        // ESC
-        return;
+    if (scan_code == RAWKEY_ESC)
+        goto bootsplash_off;
 
     // Find entry and make top priority.
     int choice = scan_code - 1;
@@ -514,6 +589,9 @@ interactive_bootmenu(void)
     hlist_del(&pos->node);
     pos->priority = 0;
     hlist_add_head(&pos->node, &BootList);
+
+bootsplash_off:
+    disable_bootsplash();
 }
 
 // BEV (Boot Execution Vector) list

@@ -12,10 +12,9 @@ void handle_1553(struct bregs *regs);
 
 // bmp.c
 struct bmp_decdata *bmp_alloc(void);
-int bmp_decode(struct bmp_decdata *bmp, unsigned char *data, int data_size);
-void bmp_get_size(struct bmp_decdata *bmp, int *width, int *height);
-int bmp_show(struct bmp_decdata *bmp, unsigned char *pic, int width
-             , int height, int depth, int bytes_per_line_dest);
+int bmp_decode(struct bmp_decdata *bmp, uint8_t *data, int data_size);
+void bmp_get_size(struct bmp_decdata *bmp, int *width, int *height, int *bpp);
+int bmp_copy_to_image(struct bmp_decdata *bmp, image_t *img);
 
 // boot.c
 void boot_init(void);
@@ -42,6 +41,18 @@ int bootprio_find_usb(struct usbdevice_s *usbdev, int lun);
 void enable_vga_console(void);
 void enable_bootsplash(void);
 void disable_bootsplash(void);
+int get_bootsplash_active(void);
+void bootsplash_show_paused(void);
+
+/* bootsplash print - on VESA framebuffer & console */
+void bs_printf(const char *fmt, ...)
+    __attribute__ ((format(printf, 1, 2)));
+void bs_print(const char *text);
+void bs_clear(void);
+void bs_status_printf(const char *fmt, ...)
+    __attribute__ ((format(printf, 1, 2)));
+void bs_status_print(const char *text);
+void bs_wait_loop(u32 tick_left);
 
 // cdrom.c
 extern struct eltorito_s CDEmu;

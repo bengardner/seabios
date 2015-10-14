@@ -294,6 +294,57 @@ copy_smbios(void *pos)
     SMBiosAddr = newpos;
 }
 
+const char *smbios_str_get(const char *strarr, int idx)
+{
+    while ((idx > 1) && *strarr) {
+        strarr += strlen(strarr) + 1;
+        idx--;
+    }
+    return strarr;
+}
+
+const void *smbios_get_table(u8 type, u8 minlen)
+{
+    struct smbios_structure_header *sshdr = smbios_next(SMBiosAddr, NULL);
+
+    for (; sshdr; sshdr = smbios_next(SMBiosAddr, sshdr)) {
+        if ((sshdr->type == type) && (sshdr->length >= minlen)) {
+            return sshdr;
+        }
+    }
+    return NULL;
+}
+
+void
+display_smbios_type_1(void)
+{
+    const struct smbios_type_1 *tbl = smbios_get_table(1, sizeof(*tbl));
+
+    if (tbl) {
+        const char *str_ptr = (const char *)&tbl[1];
+        const u8 *uuid = tbl->uuid;
+        const u8 empty_uuid[sizeof(tbl->uuid)] = { 0 };
+
+        if (tbl->manufacturer_str)
+            printf("System Manufacturer:  %s\n", smbios_str_get(str_ptr, tbl->manufacturer_str));
+        if (tbl->product_name_str)
+            printf("System Product Name:  %s\n", smbios_str_get(str_ptr, tbl->product_name_str));
+        if (tbl->version_str)
+            printf("System Version:       %s\n", smbios_str_get(str_ptr, tbl->version_str));
+        if (tbl->serial_number_str)
+            printf("System Serial Number: %s\n", smbios_str_get(str_ptr, tbl->serial_number_str));
+        if (memcmp(uuid, empty_uuid, sizeof(empty_uuid)) != 0)
+            printf("System UUID:         %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                   uuid[ 0], uuid[ 1], uuid[ 2], uuid[ 3],
+                   uuid[ 4], uuid[ 5],
+                   uuid[ 6], uuid[ 7],
+                   uuid[ 8], uuid[ 9],
+                   uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
+        if (tbl->sku_number_str)
+            printf("System SKU Number:    %s\n", smbios_str_get(str_ptr, tbl->sku_number_str));
+    }
+}
+
 void
 display_uuid(void)
 {

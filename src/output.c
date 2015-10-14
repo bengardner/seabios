@@ -341,15 +341,21 @@ __dprintf(const char *fmt, ...)
 }
 
 void
-printf(const char *fmt, ...)
+vprintf(const char *fmt, va_list args)
 {
     ASSERT32FLAT();
-    va_list args;
-    va_start(args, fmt);
     bvprintf(&screeninfo, fmt, args);
-    va_end(args);
     if (ScreenAndDebug)
         debug_flush();
+}
+
+void
+printf(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
 }
 
 
@@ -376,22 +382,31 @@ putc_str(struct putcinfo *info, char c)
 // number of bytes used (not including null) even in the overflow
 // case.
 int
-snprintf(char *str, size_t size, const char *fmt, ...)
+vsnprintf(char *str, size_t size, const char *fmt, va_list args)
 {
     ASSERT32FLAT();
     if (!size)
         return 0;
     struct snprintfinfo sinfo = { { putc_str }, str, str + size };
-    va_list args;
-    va_start(args, fmt);
     bvprintf(&sinfo.info, fmt, args);
-    va_end(args);
     char *end = sinfo.str;
     if (end >= sinfo.end)
         end = sinfo.end - 1;
     *end = '\0';
     return end - str;
 }
+
+int
+snprintf(char *str, size_t size, const char *fmt, ...)
+{
+    int rv;
+    va_list args;
+    va_start(args, fmt);
+    rv = vsnprintf(str, size, fmt, args);
+    va_end(args);
+    return rv;
+}
+
 
 // Build a formatted string - malloc'ing the memory.
 char *

@@ -3,6 +3,7 @@
 
 #include "config.h" // CONFIG_DEBUG_LEVEL
 #include "types.h" // u32
+#include <stdarg.h> // va_list
 
 // output.c
 void debug_banner(void);
@@ -10,8 +11,10 @@ void panic(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2))) __noreturn;
 void printf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
+void vprintf(const char *fmt, va_list args);
 int snprintf(char *str, size_t size, const char *fmt, ...)
     __attribute__ ((format (printf, 3, 4)));
+int vsnprintf(char *str, size_t size, const char *fmt, va_list args);
 char * znprintf(size_t size, const char *fmt, ...)
     __attribute__ ((format (printf, 2, 3)));
 void __dprintf(const char *fmt, ...)

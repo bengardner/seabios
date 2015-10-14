@@ -229,8 +229,8 @@ timer_calc_usec(u32 usecs)
 u32
 ticks_to_ms(u32 ticks)
 {
-    u32 t = PIT_TICK_INTERVAL * 1000 * PMTIMER_TO_PIT * ticks;
-    return DIV_ROUND_UP(t, PMTIMER_HZ);
+    u32 t = PIT_TICK_INTERVAL * PMTIMER_TO_PIT * ticks;
+    return DIV_ROUND_UP(t, PMTIMER_HZ/1000);
 }
 
 // Return the number of timer irqs in 'ms' number of milliseconds.

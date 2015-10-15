@@ -449,10 +449,10 @@ _enable_bootsplash(void)
 
     // Try to find a graphics mode with the corresponding dimensions.
     int videomode = find_videomode(vesa_info, mode_info, width, height,
-                                       bpp_require);
+                                   bpp_require);
     if (videomode < 0) {
         dprintf(1, "failed to find a videomode with %dx%d %dbpp (0=any).\n",
-                    width, height, bpp_require);
+                width, height, bpp_require);
         goto done;
     }
     void *framebuffer = (void *)mode_info->phys_base;
@@ -470,15 +470,15 @@ _enable_bootsplash(void)
         goto done;
     }
 
+    /* create a matching image with our own memory */
     image_t img;
     if (image_from_vbe_mode_info(&img, mode_info)) {
         goto done;
     }
     img.mem = picture;
+
     if (type == 0) {
         dprintf(5, "Decompressing bootsplash.jpg\n");
-        //ret = jpeg_show(jpeg, picture, width, height, depth,
-        //                mode_info->bytes_per_scanline);
         ret = jpeg_copy_to_image(jpeg, &img);
         if (ret) {
             dprintf(1, "jpeg_show failed with return code %d...\n", ret);

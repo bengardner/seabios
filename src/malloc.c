@@ -258,7 +258,6 @@ malloc_palloc(struct zone_s *zone, u32 size, u32 align)
     dprintf(8, "phys_alloc zone=%p size=%d align=%x ret=%x (detail=%p)\n"
             , zone, size, align, data, detail);
 
-    memset(data, 0, size);
     return data;
 }
 

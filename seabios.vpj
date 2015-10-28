@@ -79,6 +79,8 @@
 				<F N="src/hw/ata.h"/>
 				<F N="src/hw/blockcmd.c"/>
 				<F N="src/hw/blockcmd.h"/>
+				<F N="src/hw/designware-i2c.c"/>
+				<F N="src/hw/designware-i2c.h"/>
 				<F N="src/hw/dma.c"/>
 				<F N="src/hw/esp-scsi.c"/>
 				<F N="src/hw/esp-scsi.h"/>

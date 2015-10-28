@@ -22,6 +22,7 @@
 #include "std/vbe.h" // VBE_CAPABILITY_8BIT_DAC
 #include "std/smbios.h"
 #include "hw/wabtec-cpu1900.h"
+#include "hw/designware-i2c.h"
 
 extern u32 CpuKHz VARFSEG;
 extern u64 FirstTimestamp VARFSEG;
@@ -136,6 +137,23 @@ static int coretemp_read(void)
 	temp  = tjmax - ((rdmsr(MSR_IA32_THERM_STATUS) >> 16) & 0x7f);
 
 	return temp;
+}
+
+static int tmp75c_temp_read(void)
+{
+	struct pci_device *pdev = pci_find_device(0x8086, 0xf43);
+	u8 buf[2];
+
+	if (dw_i2c_init(pdev) != I2C_SUCCESS)
+		return -1;
+
+	if (dw_i2c_read(pdev, 0x48, 0x00, buf, 2) != I2C_SUCCESS)
+		return -1;
+
+	// round up and discard fractional part
+	if (buf[1] > 0x7f)
+		buf[0]++;
+	return (s8)buf[0];
 }
 
 /**
@@ -260,7 +278,7 @@ static void print_bios_info(void)
     //TODO: CFast Size/detected?
     //TODO: MMC size/detected?
 
-    bs_printf("Core Temp: %d deg C\n", coretemp_read());
+    bs_printf("Core Temp:  %d C     Amb Temp:  %d C\n", coretemp_read(), tmp75c_temp_read());
 
     //bs_print("\nPlatform initialization completed in ");
     //u32 boot_time_ms = GetTimestampMilliseconds(FirstTimestamp);

@@ -124,6 +124,20 @@ static u32 GetTimestampMilliseconds(u64 tsc) {
 
 static textbox_t g_textbox;
 
+
+#define MSR_IA32_THERM_STATUS       0x0000019c
+#define MSR_IA32_TEMPERATURE_TARGET 0x000001a2
+
+static int coretemp_read(void)
+{
+	int tjmax, temp;
+
+	tjmax = (rdmsr(MSR_IA32_TEMPERATURE_TARGET) >> 16) & 0xff;
+	temp  = tjmax - ((rdmsr(MSR_IA32_THERM_STATUS) >> 16) & 0x7f);
+
+	return temp;
+}
+
 /**
  * Read the I210 MAC from the RAL0/RAH0 registers.
  * @return 0=OK, 1=Not initialized, -1=error (shouldn't happen!)
@@ -246,11 +260,13 @@ static void print_bios_info(void)
     //TODO: CFast Size/detected?
     //TODO: MMC size/detected?
 
-    bs_print("\nPlatform initialization completed in ");
-    u32 boot_time_ms = GetTimestampMilliseconds(FirstTimestamp);
-    u32 boot_time_sec = boot_time_ms/1000;
-    boot_time_ms -= (boot_time_sec * 1000);
-    bs_printf("%u.%03u seconds.\n", boot_time_sec, boot_time_ms);
+    bs_printf("Core Temp: %d deg C\n", coretemp_read());
+
+    //bs_print("\nPlatform initialization completed in ");
+    //u32 boot_time_ms = GetTimestampMilliseconds(FirstTimestamp);
+    //u32 boot_time_sec = boot_time_ms/1000;
+    //boot_time_ms -= (boot_time_sec * 1000);
+    //bs_printf("%u.%03u seconds.\n", boot_time_sec, boot_time_ms);
 }
 
 static void

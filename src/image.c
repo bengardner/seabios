@@ -259,7 +259,7 @@ int image_blit(image_t *dst_img, const image_t *src_img, int flip_src)
     int src_psz = image_pixel_size(src_img);
     int dst_psz = image_pixel_size(dst_img);
 
-    dprintf(1, "image_blit: 0x%x %d %d %d %d %p -> 0x%x %d %d %d %d %p (%d)\n",
+    dprintf(3, "image_blit: 0x%x %d %d %d %d %p -> 0x%x %d %d %d %d %p (%d)\n",
             src_img->pf.format,
             src_img->width,
             src_img->height,
@@ -282,7 +282,7 @@ int image_blit(image_t *dst_img, const image_t *src_img, int flip_src)
     /* if we have the exact same pixel format, we can use memcpy() */
     if (src_img->pf.format == dst_img->pf.format) {
         int cp_bytes = cp_cols * src_psz;
-        dprintf(1, "image_blit: using memcpy(%d)\n", cp_bytes);
+        dprintf(3, "image_blit: using memcpy(%d)\n", cp_bytes);
         while (cp_rows-- > 0) {
             memcpy(dst_row, src_row, cp_bytes);
             src_row += src_rowp;
@@ -292,7 +292,7 @@ int image_blit(image_t *dst_img, const image_t *src_img, int flip_src)
     else
     {
         /* need to copy & convert pixel by pixel */
-        dprintf(1, "image_blit: using get(%d/%d)/put(%d/%d) %d/%d\n",
+        dprintf(3, "image_blit: using get(%d/%d)/put(%d/%d) %d/%d\n",
                 src_psz, src_rowp,
                 dst_psz, dst_img->pitch,
                 cp_rows, cp_cols);

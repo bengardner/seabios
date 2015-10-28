@@ -152,5 +152,13 @@ enum cpu1900_led_sys_values {
 	CPU1900_LED_MAX         = CPU1900_LED_RED
 };
 
+/* defines to map HZ to LED_RATE values */
+#define CPU1900_LED_10_HZ       0  /* 100 ms */
+#define CPU1900_LED_5_HZ        1  /* 200 ms */
+#define CPU1900_LED_3_3_HZ      2  /* 300 ms */
+#define CPU1900_LED_2_5_HZ      3  /* 400 ms */
+#define CPU1900_LED_2_HZ        4  /* 500 ms */
+#define CPU1900_LED_1_HZ        9  /* 1000 ms */
+#define CPU1900_LED_0_5_HZ      19 /* 2000 ms */
 
 #endif /* WABTEC_CPU1900_H_INCLUDED */

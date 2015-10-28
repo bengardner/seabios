@@ -20,6 +20,7 @@
 #include "string.h" // memset
 #include "util.h" // irqtimer_calc
 #include "tcgbios.h" // tpm_*
+#include "hw/wabtec-cpu1900.h"
 
 // scan codes for get_keystroke()
 // these should be elsewhere in a header file.
@@ -842,6 +843,11 @@ void VISIBLE32FLAT
 handle_19(void)
 {
     debug_enter(NULL, DEBUG_HDL_19);
+
+    /* set the Status LED back to the default */
+    outb(CPU1900_LED_GREEN_BLINK, CPU1900_REG_STATUS_LED_DUTY);
+    outb(CPU1900_LED_2_HZ, CPU1900_REG_STATUS_LED_RATE);
+
     BootSequence = 0;
     do_boot(0);
 }

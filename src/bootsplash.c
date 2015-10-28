@@ -278,7 +278,8 @@ static void print_bios_info(void)
     //TODO: CFast Size/detected?
     //TODO: MMC size/detected?
 
-    bs_printf("Core Temp:  %d C     Amb Temp:  %d C\n", coretemp_read(), tmp75c_temp_read());
+    bs_printf("Core Temp:  %d C\n", coretemp_read());
+    bs_printf("Amb Temp:   %d C\n", tmp75c_temp_read());
 
     //bs_print("\nPlatform initialization completed in ");
     //u32 boot_time_ms = GetTimestampMilliseconds(FirstTimestamp);

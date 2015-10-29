@@ -144,8 +144,7 @@ static inline pixel32_t pixel_get(const image_t *img, const uint8_t *src)
  * An override can be supplied with the get_char() function, which should return
  * the upper left
  */
-typedef struct font_t font_t;
-struct font_t
+typedef struct font_t
 {
 	image_t       img;      // backing image (PIXFMT_8_P, PIXFMT_8_G8, or any RGB)
 	uint16_t      width;    // width of font in pixels
@@ -155,8 +154,8 @@ struct font_t
 	uint8_t       max_char; // max char provided                 (usually 128 or 256)
 	uint8_t       def_char; // used if a request is out of range (usually 0 or 32
 	// custom get char function if the top-left corner isn't @ mem[ch * delta]
-	const uint8_t *(*get_char)(font_t *font, uint8_t ch);
-};
+	const uint8_t *(*get_char)(struct font_t *font, uint8_t ch);
+} font_t;
 
 
 typedef struct textbox_ctx_t
@@ -184,7 +183,7 @@ static inline int image_valid(const image_t *img)
 
 static inline int font_valid(const font_t *font)
 {
-    return font && image_valid(&font->img) && font->get_char;
+    return font && image_valid(&font->img);
 }
 
 static inline int textbox_valid(const textbox_t *tb)
@@ -241,6 +240,7 @@ int image_from_image(image_t *img, const image_t *src_img,
 int image_blit(image_t *dst_img, const image_t *src_img, int flip_src);
 
 int font_get_8x16x1(font_t *font);
+int font_get_8x8x1(font_t *font);
 int font_copy(font_t *dst, const font_t *src);
 
 

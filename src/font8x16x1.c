@@ -31,9 +31,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "font8x16x1.h"
+#include <stdint.h>
 
-const uint8_t font8x16x1[FONT_GLYPHS * FONT_HEIGHT] = {
+const uint8_t font8x16x1[256 * 16] = {
 
 	/* 0 0x00 '^@' */
 	0x00, /* 00000000 */

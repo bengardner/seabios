@@ -17,7 +17,6 @@
 #include "string.h" // memset
 #include "util.h" // bmp_alloc, etc.
 #include "image.h"
-#include "font8x16x1.h"
 
 #define IMAGE_DEBUG_LEVEL 3
 
@@ -332,9 +331,9 @@ static const uint8_t *font_get_char(font_t *font, uint8_t ch)
 
 int font_get_8x8x1(font_t *font)
 {
-    extern u8 vgafont8[128*8];
+    extern const uint8_t font8x8x1[];
     if (font &&
-        (image_init_ro(&font->img, PIXFMT_8_P, 8, 128 * 8, 1, (uint8_t *)vgafont8) == 0))
+        (image_init_ro(&font->img, PIXFMT_8_P, 8, 128 * 8, 1, (uint8_t *)font8x8x1) == 0))
     {
         font->height   = 8;
         font->width    = 8;
@@ -355,6 +354,7 @@ int font_get_8x8x1(font_t *font)
 
 int font_get_8x16x1(font_t *font)
 {
+    extern const uint8_t font8x16x1[];
     if (font &&
         (image_init_ro(&font->img, PIXFMT_8_P, 8, 256 * 16, 1, (uint8_t *)font8x16x1) == 0))
     {
@@ -510,8 +510,8 @@ int textbox_clear_lines(textbox_t *tb, uint16_t row, uint16_t row_cnt)
         if ((row + row_cnt) > tb->row_cnt) {
             row_cnt = tb->row_cnt - row;
         }
-        uint8_t *row_ptr = image_pixel_ptr(&tb->img, 0, row * 16);
-        int     rows     = 16 * row_cnt;
+        uint8_t *row_ptr = image_pixel_ptr(&tb->img, 0, row * tb->font.height);
+        int     rows     = tb->font.height * row_cnt;
         int     psz      = image_pixel_size(&tb->img);
 
         while (rows-- > 0) {

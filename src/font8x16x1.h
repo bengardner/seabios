@@ -44,7 +44,4 @@
 
 extern const uint8_t font8x16x1[];
 
-/* Grab the start of the char data */
-const uint8_t *font8x16x1_get_char(uint8_t ch);
-
 #endif

@@ -316,6 +316,42 @@ int image_blit(image_t *dst_img, const image_t *src_img, int flip_src)
     return 0;
 }
 
+static const uint8_t *font_get_char(font_t *font, uint8_t ch)
+{
+    if (font->get_char)
+        return font->get_char(font, ch);
+    if ((ch > font->max_char) || (ch < font->min_char))
+        ch = font->def_char;
+    return &font->img.mem[(ch - font->min_char) * font->delta];
+}
+
+//static const uint8_t *font8x8x1_get_char(font_t *font, uint8_t ch)
+//{
+//    return &font->img.mem[((ch < 128) ? ch : 0) * 8];
+//}
+
+int font_get_8x8x1(font_t *font)
+{
+    extern u8 vgafont8[128*8];
+    if (font &&
+        (image_init_ro(&font->img, PIXFMT_8_P, 8, 128 * 8, 1, (uint8_t *)vgafont8) == 0))
+    {
+        font->height   = 8;
+        font->width    = 8;
+        font->min_char = 0;
+        font->max_char = 128;
+        font->def_char = 0;
+        font->delta    = 8;
+        font->get_char = NULL; //font8x8x1_get_char;
+        return 0;
+    }
+    return -1;
+}
+
+//const uint8_t *font8x16x1_get_char(font_t *font, uint8_t ch)
+//{
+//    return &font->img.mem[ch * 16];
+//}
 
 int font_get_8x16x1(font_t *font)
 {
@@ -324,7 +360,11 @@ int font_get_8x16x1(font_t *font)
     {
         font->height   = 16;
         font->width    = 8;
-        font->get_char = font8x16x1_get_char;
+        font->min_char = 0;
+        font->max_char = 255;
+        font->def_char = 0;
+        font->delta    = 16;
+        font->get_char = NULL; //font8x16x1_get_char;
         return 0;
     }
     return -1;
@@ -337,6 +377,10 @@ int font_copy(font_t *dst, const font_t *src)
         image_copy(&dst->img, &src->img);
         dst->height   = src->height;
         dst->width    = src->width;
+        dst->delta    = src->delta;
+        dst->min_char = src->min_char;
+        dst->max_char = src->max_char;
+        dst->def_char = src->def_char;
         dst->get_char = src->get_char;
         return 0;
     }
@@ -383,7 +427,7 @@ void textbox_draw_char_at(textbox_t *tb, uint16_t row, uint16_t col, uint8_t ch)
       image_t       *img      = &tb->img;
       font_t        *font     = &tb->font;
       uint8_t       *img_rowp = image_pixel_ptr(img, col * font->width, row * font->height);
-      const uint8_t *fnt_rowp = font->get_char(ch);
+      const uint8_t *fnt_rowp = font_get_char(font, ch);
       int           img_psz   = image_pixel_size(img);
       int           fnt_psz   = image_pixel_size(&font->img);
       int           frows     = font->height;

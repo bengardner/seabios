@@ -4644,8 +4644,3 @@ const uint8_t font8x16x1[FONT_GLYPHS * FONT_HEIGHT] = {
 	0x00, /* 00000000 */
 
 };
-
-const uint8_t *font8x16x1_get_char(uint8_t ch)
-{
-	return &font8x16x1[ch * FONT_HEIGHT];
-}

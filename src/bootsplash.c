@@ -162,6 +162,10 @@ static int tmp75c_temp_read(void)
  */
 static int i210_get_mac(struct pci_device *pci, uint8_t mac[6])
 {
+    if ((pci->vendor != 0x8086) ||
+        (pci->class != PCI_CLASS_NETWORK_ETHERNET))
+        return -1;
+
     // Enable memory access.
     u16 old_val = pci_config_readw(pci->bdf, PCI_COMMAND);
     pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MEMORY);
@@ -238,37 +242,44 @@ static void print_bios_info(void)
         PCI: BDF:e3 root:0 8086:0f4e class:0604
 
      */
-    struct pci_device *pci_exp = NULL;
+    struct pci_device *pcie_slot[4] = { NULL };
+    static const char *pcie_name[4] = { "Front Eth", NULL, "Expansion", "Back  Eth" };
+    static int         pcie_order[] = { 0, 3, 2 };
     struct pci_device *pci;
-    uint8_t mac[6];
+
     foreachpci(pci) {
-        if (pci->parent)
-        {
-            if ((pci->class == PCI_CLASS_NETWORK_ETHERNET) &&
-                (pci->vendor == 0x8086))
-            {
-                /* assuming an i210, since that is what we have */
-                int rv = i210_get_mac(pci, mac);
-                if (rv >= 0) {
-                    bs_printf("%s Eth:  %04x:%04x MAC=%02x%02x.%02x%02x.%02x%02x%s%s\n",
-                              (pci->parent->device == 0x0f48) ? "Front" : "Back ",
-                              pci->vendor, pci->device,
-                              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
-                              (rv != 0) ? " [Invalid]" : "",
-                              (pci->device != 0x157b) ? " [Not Initialzed]" : "");
-                }
-            } else {
-                pci_exp = pci;
-            }
+        if (pci->parent && (pci->parent->bdf >= 0xe0) && (pci->parent->bdf <= 0xe3)) {
+            dprintf(1, "Found: 0x%04x %04x:%04x with parent %04x %04x:%04x\n",
+                    pci->bdf, pci->vendor, pci->device,
+                    pci->parent->bdf, pci->parent->vendor, pci->parent->device);
+            pcie_slot[pci->parent->bdf - 0xe0] = pci;
         }
     }
 
-    // log what is in the PCIe slot
-    if (pci_exp) {
-        bs_printf("Expansion:  %04x:%04x\n", pci_exp->vendor, pci_exp->device);
-    } else {
-        bs_printf("Expansion:  None\n");
+    int didx;
+    for (didx = 0; didx < ARRAY_SIZE(pcie_order); didx++) {
+        int idx = pcie_order[didx];
+        if (!pcie_name[idx])
+            continue;
+        pci = pcie_slot[idx];
+        if (pci) {
+            uint8_t mac[6];
+            int rv;
+            if ((rv = i210_get_mac(pci, mac)) >= 0) {
+                bs_printf("%s:  %04x:%04x MAC=%02x%02x.%02x%02x.%02x%02x%s%s\n",
+                          pcie_name[idx], pci->vendor, pci->device,
+                          mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+                          (rv != 0) ? " [Invalid]" : "",
+                          (pci->device != 0x157b) ? " [Not Initialzed]" : "");
+            } else {
+                bs_printf("%s:  %04x:%04x\n",
+                          pcie_name[idx], pci->vendor, pci->device);
+            }
+        } else {
+            bs_printf("%s:  -\n", pcie_name[idx]);
+        }
     }
+
     bs_printf("FPGA Info:  Rev:%d.%d HW:0x%02x Opt:0x%02x\n",
               inb(CPU1900_REG_FPGA_MAJOR_REV),
               inb(CPU1900_REG_FPGA_MINOR_REV),

@@ -583,3 +583,16 @@ void bootsplash_show_paused(void)
 {
     bs_status_print("Screen frozen. Press a key to reboot.");
 }
+
+void waitforinput_start(void)
+{
+    outb(0, CPU1900_REG_DTE_LED_RATE);
+    outb(CPU1900_LED_GREEN_BLINK, CPU1900_REG_DTE_LED_DUTY);
+}
+
+void waitforinput_stop(void)
+{
+    /* Back to the DTE default */
+    outb(4, CPU1900_REG_DTE_LED_RATE);
+    outb(CPU1900_LED_BLACK, CPU1900_REG_DTE_LED_DUTY);
+}

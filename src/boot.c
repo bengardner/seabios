@@ -527,12 +527,17 @@ interactive_bootmenu(void)
 
     u32 menutime = romfile_loadint("etc/boot-menu-wait", DEFAULT_BOOTMENU_WAIT);
     enable_bootsplash(menukey_text);
+
+    waitforinput_start();
     int scan_code = get_keystroke(menutime);
+    waitforinput_stop();
 
     /* F1 will freeze the bootsplash and reboot after the next keypress */
     if ((scan_code == RAWKEY_F1) && get_bootsplash_active()) {
         bootsplash_show_paused();
+        waitforinput_start();
         scan_code = get_keystroke(-1);
+        waitforinput_stop();
         dprintf(1, "Rebooting.\n");
         tryReboot();
         // shouldn't get here
@@ -566,7 +571,9 @@ interactive_bootmenu(void)
     // multiple times and immediately booting the primary boot device.
     int esc_accepted_time = irqtimer_calc(menukey_code == RAWKEY_ESC ? 1500 : 0);
     for (;;) {
+        waitforinput_start();
         scan_code = get_keystroke(15000);
+        waitforinput_stop();
         if (scan_code < 0)
             goto bootsplash_off;
         if (scan_code == RAWKEY_ESC && !irqtimer_check(esc_accepted_time))

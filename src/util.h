@@ -44,6 +44,9 @@ void disable_bootsplash(void);
 int get_bootsplash_active(void);
 void bootsplash_show_paused(void);
 
+void waitforinput_start(void);
+void waitforinput_stop(void);
+
 /* bootsplash print - on VESA framebuffer & console */
 void bs_printf(const char *fmt, ...)
     __attribute__ ((format(printf, 1, 2)));

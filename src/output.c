@@ -16,6 +16,7 @@
 #include "stacks.h" // call16_int
 #include "string.h" // memset
 #include "util.h" // ScreenAndDebug
+#include "hw/wabtec-cpu1900.h"
 
 struct putcinfo {
     void (*func)(struct putcinfo *info, char c);
@@ -25,6 +26,19 @@ struct putcinfo {
 /****************************************************************
  * Debug output
  ****************************************************************/
+
+static int debug_loglevel = -1;
+
+int debug_level_enabled(int msg_level)
+{
+    if (!debug_loglevel < 0) {
+        if ((inb(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) == CPU1900_REG_DBG_VAL)
+            debug_loglevel = CONFIG_DEBUG_LEVEL_DEBUG;
+        else
+            debug_loglevel = CONFIG_DEBUG_LEVEL;
+    }
+    return msg_level && (debug_loglevel >= msg_level);
+}
 
 void
 debug_banner(void)
@@ -37,7 +51,7 @@ debug_banner(void)
 static void
 debug_putc(struct putcinfo *action, char c)
 {
-    if (! CONFIG_DEBUG_LEVEL)
+    if (!CONFIG_DEBUG_LEVEL)
         return;
     qemu_debug_putc(c);
     if (!MODESEGMENT)
@@ -321,7 +335,7 @@ panic(const char *fmt, ...)
 void
 __dprintf(const char *fmt, ...)
 {
-    if (!MODESEGMENT && CONFIG_THREADS && CONFIG_DEBUG_LEVEL >= DEBUG_thread
+    if (!MODESEGMENT && CONFIG_THREADS && debug_level_enabled(DEBUG_thread)
         && *fmt != '\\' && *fmt != '/') {
         struct thread_info *cur = getCurThread();
         if (cur != &MainThread) {
@@ -545,7 +559,7 @@ __debug_stub(struct bregs *regs, int lineno, const char *fname)
 void
 __warn_invalid(struct bregs *regs, int lineno, const char *fname)
 {
-    if (CONFIG_DEBUG_LEVEL >= DEBUG_invalid) {
+    if (debug_level_enabled(DEBUG_invalid)) {
         dprintf(1, "invalid %s:%d:\n", fname, lineno);
         dump_regs(regs);
     }
@@ -555,7 +569,7 @@ __warn_invalid(struct bregs *regs, int lineno, const char *fname)
 void
 __warn_unimplemented(struct bregs *regs, int lineno, const char *fname)
 {
-    if (CONFIG_DEBUG_LEVEL >= DEBUG_unimplemented) {
+    if (debug_level_enabled(DEBUG_unimplemented)) {
         dprintf(1, "unimplemented %s:%d:\n", fname, lineno);
         dump_regs(regs);
     }

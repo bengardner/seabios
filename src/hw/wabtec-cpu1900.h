@@ -68,6 +68,11 @@
 #define CPU1900_REG_BIOS_BANK			(CPU1900_REG_BASE + 0x17)
 #define CPU1900_REG_ADC_BASE			(CPU1900_REG_BASE + 0x20)
 
+/* Used to enable extra debug logs if (inb(reg) & mask) == val */
+#define CPU1900_REG_DBG				CPU1900_REG_FPGA_OPTIONS
+#define CPU1900_REG_DBG_MSK			0x10
+#define CPU1900_REG_DBG_VAL			0x00
+
 /* ADC registers defined */
 #define CPU1900_ADC_1_0V_S			0x00
 #define CPU1900_ADC_1_0V_SX			0x01

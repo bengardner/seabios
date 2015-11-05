@@ -6,6 +6,7 @@
 #include <stdarg.h> // va_list
 
 // output.c
+int debug_level_enabled(int level);
 void debug_banner(void);
 void panic(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2))) __noreturn;
@@ -39,15 +40,15 @@ void __set_code_unimplemented(struct bregs *regs, u32 linecode
 void hexdump(const void *d, int len);
 
 #define dprintf(lvl, fmt, args...) do {                         \
-        if (CONFIG_DEBUG_LEVEL && (lvl) <= CONFIG_DEBUG_LEVEL)  \
+        if (debug_level_enabled(lvl))                           \
             __dprintf((fmt) , ##args );                         \
     } while (0)
 #define debug_enter(regs, lvl) do {                     \
-        if ((lvl) && (lvl) <= CONFIG_DEBUG_LEVEL)       \
+        if (debug_level_enabled(lvl))                   \
             __debug_enter((regs), __func__);            \
     } while (0)
 #define debug_isr(lvl) do {                             \
-        if ((lvl) && (lvl) <= CONFIG_DEBUG_LEVEL)       \
+        if (debug_level_enabled(lvl))                   \
             __debug_isr(__func__);                      \
     } while (0)
 #define debug_stub(regs)                        \

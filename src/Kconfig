@@ -522,6 +522,12 @@ menu "Debugging"
 
             Set to zero to disable debugging.
 
+    config DEBUG_LEVEL_DEBUG
+        int "Debug level (debug strap)"
+        default 1
+        help
+            Alternate DEBUG_LEVEL if debug strapping is enabled.
+
     config DEBUG_SERIAL
         depends on DEBUG_LEVEL != 0
         bool "Serial port debugging"

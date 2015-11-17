@@ -27,15 +27,21 @@ struct putcinfo {
  * Debug output
  ****************************************************************/
 
-static int debug_loglevel = -1;
+#if MODE16
+static int debug_loglevel VAR16;
+#elif MODESEGMENT
+static int debug_loglevel VAR32SEG;
+#else
+static int debug_loglevel;
+#endif
 
 int debug_level_enabled(int msg_level)
 {
-    if (debug_loglevel < 0) {
+    if (debug_loglevel == 0) {
         if ((inb(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) == CPU1900_REG_DBG_VAL)
-            debug_loglevel = CONFIG_DEBUG_LEVEL_DEBUG;
+            debug_loglevel = (CONFIG_DEBUG_LEVEL_DEBUG == 0) ? -1 : CONFIG_DEBUG_LEVEL_DEBUG;
         else
-            debug_loglevel = CONFIG_DEBUG_LEVEL;
+            debug_loglevel = (CONFIG_DEBUG_LEVEL == 0) ? -1 : CONFIG_DEBUG_LEVEL;
     }
     return msg_level && (debug_loglevel >= msg_level);
 }

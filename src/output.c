@@ -31,7 +31,7 @@ static int debug_loglevel = -1;
 
 int debug_level_enabled(int msg_level)
 {
-    if (!debug_loglevel < 0) {
+    if (debug_loglevel < 0) {
         if ((inb(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) == CPU1900_REG_DBG_VAL)
             debug_loglevel = CONFIG_DEBUG_LEVEL_DEBUG;
         else

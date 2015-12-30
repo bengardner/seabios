@@ -249,9 +249,6 @@ static void print_bios_info(void)
 
     foreachpci(pci) {
         if (pci->parent && (pci->parent->bdf >= 0xe0) && (pci->parent->bdf <= 0xe3)) {
-            dprintf(1, "Found: 0x%04x %04x:%04x with parent %04x %04x:%04x\n",
-                    pci->bdf, pci->vendor, pci->device,
-                    pci->parent->bdf, pci->parent->vendor, pci->parent->device);
             pcie_slot[pci->parent->bdf - 0xe0] = pci;
         }
     }

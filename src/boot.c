@@ -503,6 +503,40 @@ get_keystroke(int msec)
 
 #define DEFAULT_BOOTMENU_WAIT 2500
 
+/**
+ * Select a bootmenu item.
+ *
+ * @param choice menu selection, starting at 1
+ */
+static void
+bootmenu_select(int choice)
+{
+    struct bootentry_s *pos;
+
+    if (choice > 0) {
+        int tmp = choice;
+        hlist_for_each_entry(pos, &BootList, node) {
+            tmp--;
+             if (tmp == 0)
+                  break;
+        }
+        if (tmp == 0) {
+            bs_printf("\nChose bootmenu item %d: %s\n\n", choice, pos->description);
+            hlist_del(&pos->node);
+            pos->priority = 0;
+            hlist_add_head(&pos->node, &BootList);
+        }
+    }
+}
+
+static void
+cpu1900_bootmenu_default(void)
+{
+    int choice = inb(CPU1900_REG_SCRATCH) & 0x0f;
+    bs_printf("CPU1900: scratch=0x%02x\n", choice);
+    bootmenu_select(choice);
+}
+
 // Show IPL option menu.
 void
 interactive_bootmenu(void)
@@ -511,6 +545,16 @@ interactive_bootmenu(void)
 
     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
         return;
+
+    // Show menu items
+    struct bootentry_s *pos;
+    int maxmenu = 0;
+    bs_printf("\nBootmenu:\n");
+    hlist_for_each_entry(pos, &BootList, node) {
+        char desc[60];
+        maxmenu++;
+        bs_printf("  %d. %s\n", maxmenu, strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
+    }
 
     while (get_keystroke(0) >= 0)
         ;
@@ -544,6 +588,11 @@ interactive_bootmenu(void)
         goto bootsplash_off;
     }
 
+    if (scan_code < 0) {
+        cpu1900_bootmenu_default();
+        goto bootsplash_off;
+    }
+
     if (scan_code != menukey_code)
         goto bootsplash_off;
 
@@ -555,8 +604,7 @@ interactive_bootmenu(void)
     wait_threads();
 
     // Show menu items
-    int maxmenu = 0;
-    struct bootentry_s *pos;
+    maxmenu = 0;
     hlist_for_each_entry(pos, &BootList, node) {
         char desc[60];
         maxmenu++;
@@ -589,14 +637,7 @@ interactive_bootmenu(void)
         goto bootsplash_off;
 
     // Find entry and make top priority.
-    int choice = scan_code - 1;
-    hlist_for_each_entry(pos, &BootList, node) {
-        if (! --choice)
-            break;
-    }
-    hlist_del(&pos->node);
-    pos->priority = 0;
-    hlist_add_head(&pos->node, &BootList);
+    bootmenu_select(scan_code - 1);
 
 bootsplash_off:
     disable_bootsplash();

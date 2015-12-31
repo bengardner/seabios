@@ -109,6 +109,7 @@ static int BootsplashActive;
  * Convert a timestamp counter value to milliseconds-since-boot, based on
  * the CPU clock frequency already calculated.
  */
+#if 0
 static u32 GetTimestampMilliseconds(u64 tsc) {
     u32 khz = CpuKHz;
 
@@ -122,6 +123,7 @@ static u32 GetTimestampMilliseconds(u64 tsc) {
     return 1;   // tell user this only took one millisecond (avoids further
                 // divide-by-zero issues)
 }
+#endif /* 0 */
 
 static textbox_t g_textbox;
 

@@ -529,13 +529,13 @@ bootmenu_select(int choice)
     }
 }
 
-static void
-cpu1900_bootmenu_default(void)
-{
-    int choice = inb(CPU1900_REG_SCRATCH) & 0x0f;
-    bs_printf("CPU1900: scratch=0x%02x\n", choice);
-    bootmenu_select(choice);
-}
+//static void
+//cpu1900_bootmenu_default(void)
+//{
+//    int choice = inb(CPU1900_REG_SCRATCH) & 0x0f;
+//    bs_printf("CPU1900: scratch=0x%02x\n", choice);
+//    bootmenu_select(choice);
+//}
 
 // Show IPL option menu.
 void
@@ -589,7 +589,7 @@ interactive_bootmenu(void)
     }
 
     if (scan_code < 0) {
-        cpu1900_bootmenu_default();
+        //cpu1900_bootmenu_default();
         goto bootsplash_off;
     }
 

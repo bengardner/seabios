@@ -148,7 +148,9 @@
 				<F N="src/std/pmm.h"/>
 				<F N="src/std/pnpbios.h"/>
 				<F N="src/std/smbios.h"/>
+				<F N="src/std/tcg.h"/>
 				<F N="src/std/vbe.h"/>
+				<F N="src/std/vga.h"/>
 			</Folder>
 			<F N="src/apm.c"/>
 			<F N="src/asm-offsets.c"/>

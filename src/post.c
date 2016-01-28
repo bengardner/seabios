@@ -204,6 +204,8 @@ prepareboot(void)
 void VISIBLE32FLAT
 startBoot(void)
 {
+    outb(0xea, 0x80);
+
     // Clear low-memory allocations (required by PMM spec).
     memset((void*)BUILD_STACK_ADDR, 0, BUILD_EBDA_MINIMUM - BUILD_STACK_ADDR);
 
@@ -218,18 +220,28 @@ startBoot(void)
 static void
 maininit(void)
 {
+    outb(0xe0, 0x80);
+
     // Initialize internal interfaces.
     interface_init();
 
+    outb(0xe1, 0x80);
+
     // Setup platform devices.
     platform_hardware_setup();
+
+    outb(0xe2, 0x80);
 
     // Start hardware initialization (if threads allowed during optionroms)
     if (threads_during_optionroms())
         device_hardware_setup();
 
+    outb(0xe3, 0x80);
+
     // Run vga option rom
     vgarom_setup();
+
+    outb(0xe4, 0x80);
 
     // Do hardware initialization (if running synchronously)
     if (!threads_during_optionroms()) {
@@ -237,15 +249,22 @@ maininit(void)
         wait_threads();
     }
 
+    outb(0xe5, 0x80);
     // Run option roms
     optionrom_setup();
 
     // Allow user to modify overall boot order.
+    outb(0xe6, 0x80);
     interactive_bootmenu();
+    outb(0xe7, 0x80);
     wait_threads();
+
+    outb(0xe8, 0x80);
 
     // Prepare for boot.
     prepareboot();
+
+    outb(0xe9, 0x80);
 
     // Write protect bios memory.
     make_bios_readonly();

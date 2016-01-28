@@ -816,6 +816,7 @@ boot_rom(u32 vector)
 static void
 boot_fail(void)
 {
+    outb(0xef, 0x80);
     if (BootRetryTime == (u32)-1)
         printf("No bootable device.\n");
     else
@@ -844,6 +845,12 @@ do_boot(int seq_nr)
 
     // Boot the given BEV type.
     struct bev_s *ie = &BEV[seq_nr];
+
+    outb(0xeb, 0x80);
+    outb(seq_nr, 0x80);
+    outb(ie->type, 0x80);
+    outb(0xec, 0x80);
+
     switch (ie->type) {
     case IPL_TYPE_FLOPPY:
         printf("Booting from Floppy...\n");
@@ -880,6 +887,8 @@ int BootSequence VARLOW = -1;
 void VISIBLE32FLAT
 handle_18(void)
 {
+    outb(0xee, 0x80);
+
     debug_enter(NULL, DEBUG_HDL_18);
     int seq = BootSequence + 1;
     BootSequence = seq;

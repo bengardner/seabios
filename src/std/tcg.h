@@ -227,45 +227,47 @@ struct pcctes_romex
 } PACKED;
 
 
-#define TPM_REQ_HEADER \
-    u16    tag; \
-    u32    totlen; \
-    u32    ordinal;
-
-#define TPM_RSP_HEADER \
-    u16    tag; \
-    u32    totlen; \
-    u32    errcode;
-
 struct tpm_req_header {
-    TPM_REQ_HEADER;
+    u16    tag;
+    u32    totlen;
+    u32    ordinal;
 } PACKED;
 
 
 struct tpm_rsp_header {
-    TPM_RSP_HEADER;
+    u16    tag;
+    u32    totlen;
+    u32    errcode;
 } PACKED;
 
 
 struct tpm_req_extend {
-    TPM_REQ_HEADER
+    struct tpm_req_header hdr;
     u32    pcrindex;
     u8     digest[SHA1_BUFSIZE];
 } PACKED;
 
 
 struct tpm_rsp_extend {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u8     digest[SHA1_BUFSIZE];
 } PACKED;
 
 
-struct tpm_req_getcap_perm_flags {
-    TPM_REQ_HEADER
+struct tpm_req_getcap {
+    struct tpm_req_header hdr;
     u32    capArea;
     u32    subCapSize;
     u32    subCap;
 } PACKED;
+
+#define TPM_CAP_FLAG     0x04
+#define TPM_CAP_PROPERTY 0x05
+#define TPM_CAP_FLAG_PERMANENT   0x108
+#define TPM_CAP_FLAG_VOLATILE    0x109
+#define TPM_CAP_PROP_OWNER       0x111
+#define TPM_CAP_PROP_TIS_TIMEOUT 0x115
+#define TPM_CAP_PROP_DURATION    0x120
 
 
 struct tpm_permanent_flags {
@@ -283,46 +285,81 @@ enum permFlagsIndex {
     PERM_FLAG_IDX_ALLOW_MAINTENANCE,
     PERM_FLAG_IDX_PHYSICAL_PRESENCE_LIFETIME_LOCK,
     PERM_FLAG_IDX_PHYSICAL_PRESENCE_HW_ENABLE,
+    PERM_FLAG_IDX_PHYSICAL_PRESENCE_CMD_ENABLE,
 };
 
 
 struct tpm_res_getcap_perm_flags {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    size;
     struct tpm_permanent_flags perm_flags;
 } PACKED;
 
+struct tpm_stclear_flags {
+    u16    tag;
+    u8     flags[5];
+} PACKED;
+
+#define STCLEAR_FLAG_IDX_DEACTIVATED 0
+#define STCLEAR_FLAG_IDX_DISABLE_FORCE_CLEAR 1
+#define STCLEAR_FLAG_IDX_PHYSICAL_PRESENCE 2
+#define STCLEAR_FLAG_IDX_PHYSICAL_PRESENCE_LOCK 3
+#define STCLEAR_FLAG_IDX_GLOBAL_LOCK 4
+
+struct tpm_res_getcap_stclear_flags {
+    struct tpm_rsp_header hdr;
+    u32    size;
+    struct tpm_stclear_flags stclear_flags;
+} PACKED;
 
 struct tpm_res_getcap_ownerauth {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    size;
     u8     flag;
 } PACKED;
 
 
 struct tpm_res_getcap_timeouts {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    size;
     u32    timeouts[4];
 } PACKED;
 
 
 struct tpm_res_getcap_durations {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    size;
     u32    durations[3];
 } PACKED;
 
 
 struct tpm_res_sha1start {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    max_num_bytes;
 } PACKED;
 
 
 struct tpm_res_sha1complete {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u8     hash[20];
 } PACKED;
+
+#define TPM_STATE_ENABLED 1
+#define TPM_STATE_ACTIVE 2
+#define TPM_STATE_OWNED 4
+#define TPM_STATE_OWNERINSTALL 8
+
+/*
+ * physical presence interface
+ */
+
+#define TPM_PPI_OP_NOOP 0
+#define TPM_PPI_OP_ENABLE 1
+#define TPM_PPI_OP_DISABLE 2
+#define TPM_PPI_OP_ACTIVATE 3
+#define TPM_PPI_OP_DEACTIVATE 4
+#define TPM_PPI_OP_CLEAR 5
+#define TPM_PPI_OP_SET_OWNERINSTALL_TRUE 8
+#define TPM_PPI_OP_SET_OWNERINSTALL_FALSE 9
 
 #endif // tcg.h

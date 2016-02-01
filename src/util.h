@@ -36,6 +36,7 @@ int bootprio_find_pci_rom(struct pci_device *pci, int instance);
 int bootprio_find_named_rom(const char *name, int instance);
 struct usbdevice_s;
 int bootprio_find_usb(struct usbdevice_s *usbdev, int lun);
+int get_keystroke(int msec);
 
 // bootsplash.c
 void enable_vga_console(void);
@@ -241,6 +242,7 @@ void device_hardware_setup(void);
 void prepareboot(void);
 void startBoot(void);
 void reloc_preinit(void *f, void *arg);
+void code_mutable_preinit(void);
 
 // resume.c
 void tryReboot(void);

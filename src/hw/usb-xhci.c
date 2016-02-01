@@ -350,42 +350,41 @@ xhci_hub_reset(struct usbhub_s *hub, u32 port)
 {
     struct usb_xhci_s *xhci = container_of(hub->cntl, struct usb_xhci_s, usb);
     u32 portsc = readl(&xhci->pr[port].portsc);
-    int rc;
     if (!(portsc & XHCI_PORTSC_CCS))
         // Device no longer connected?!
         return -1;
 
     switch (xhci_get_field(portsc, XHCI_PORTSC_PLS)) {
     case PLS_U0:
-        // A USB3 port - no reset necessary.
-        rc = speed_from_xhci[xhci_get_field(portsc, XHCI_PORTSC_SPEED)];
+        // A USB3 port - controller automatically performs reset
         break;
     case PLS_POLLING:
-        // A USB2 port - perform device reset and wait for completion
+        // A USB2 port - perform device reset
         xhci_print_port_state(3, __func__, port, portsc);
         writel(&xhci->pr[port].portsc, portsc | XHCI_PORTSC_PR);
-        u32 end = timer_calc(100);
-        for (;;) {
-            portsc = readl(&xhci->pr[port].portsc);
-            if (!(portsc & XHCI_PORTSC_CCS))
-                // Device disconnected during reset
-                return -1;
-            if (portsc & XHCI_PORTSC_PED)
-                // Reset complete
-                break;
-            if (timer_check(end)) {
-                warn_timeout();
-                return -1;
-            }
-            yield();
-        }
-        rc = speed_from_xhci[xhci_get_field(portsc, XHCI_PORTSC_SPEED)];
         break;
     default:
-        rc = -1;
-        break;
+        return -1;
     }
 
+    // Wait for device to complete reset and be enabled
+    u32 end = timer_calc(100);
+    for (;;) {
+        portsc = readl(&xhci->pr[port].portsc);
+        if (!(portsc & XHCI_PORTSC_CCS))
+            // Device disconnected during reset
+            return -1;
+        if (portsc & XHCI_PORTSC_PED)
+            // Reset complete
+            break;
+        if (timer_check(end)) {
+            warn_timeout();
+            return -1;
+        }
+        yield();
+    }
+
+    int rc = speed_from_xhci[xhci_get_field(portsc, XHCI_PORTSC_SPEED)];
     xhci_print_port_state(1, "XHCI", port, portsc);
     return rc;
 }
@@ -659,9 +658,15 @@ static void xhci_process_events(struct usb_xhci_s *xhci)
         }
         case ER_PORT_STATUS_CHANGE:
         {
-            u32 portid = (etrb->ptr_low >> 24) & 0xff;
-            dprintf(3, "%s: status change port #%d\n",
-                    __func__, portid);
+            u32 port = ((etrb->ptr_low >> 24) & 0xff) - 1;
+            // Read status, and clear port status change bits
+            u32 portsc = readl(&xhci->pr[port].portsc);
+            u32 pclear = (((portsc & ~(XHCI_PORTSC_PED|XHCI_PORTSC_PR))
+                           & ~(XHCI_PORTSC_PLS_MASK<<XHCI_PORTSC_PLS_SHIFT))
+                          | (1<<XHCI_PORTSC_PLS_SHIFT));
+            writel(&xhci->pr[port].portsc, pclear);
+
+            xhci_print_port_state(3, __func__, port, portsc);
             break;
         }
         default:
@@ -780,7 +785,6 @@ static int xhci_cmd_enable_slot(struct usb_xhci_s *xhci)
     return (xhci->cmds->evt.control >> 24) & 0xff;
 }
 
-#if 0
 static int xhci_cmd_disable_slot(struct usb_xhci_s *xhci, u32 slotid)
 {
     struct xhci_trb cmd = {
@@ -792,7 +796,6 @@ static int xhci_cmd_disable_slot(struct usb_xhci_s *xhci, u32 slotid)
     dprintf(3, "%s: slotid %d\n", __func__, slotid);
     return xhci_cmd_submit(xhci, &cmd);
 }
-#endif
 
 static int xhci_cmd_address_device(struct usb_xhci_s *xhci, u32 slotid
                                    , struct xhci_inctx *inctx)
@@ -987,7 +990,6 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
         }
         dprintf(3, "%s: enable slot: got slotid %d\n", __func__, slotid);
         memset(dev, 0, size);
-        pipe->slotid = usbdev->slotid = slotid;
         xhci->devs[slotid].ptr_low = (u32)dev;
         xhci->devs[slotid].ptr_high = 0;
 
@@ -995,10 +997,20 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
         int cc = xhci_cmd_address_device(xhci, slotid, in);
         if (cc != CC_SUCCESS) {
             dprintf(1, "%s: address device: failed (cc %d)\n", __func__, cc);
+            cc = xhci_cmd_disable_slot(xhci, slotid);
+            if (cc != CC_SUCCESS) {
+                dprintf(1, "%s: disable failed (cc %d)\n", __func__, cc);
+                goto fail;
+            }
+            xhci->devs[slotid].ptr_low = 0;
+            free(dev);
             goto fail;
         }
+        pipe->slotid = slotid;
     } else {
-        pipe->slotid = usbdev->slotid;
+        struct xhci_pipe *defpipe = container_of(
+            usbdev->defpipe, struct xhci_pipe, pipe);
+        pipe->slotid = defpipe->slotid;
         // Send configure command.
         int cc = xhci_cmd_configure_endpoint(xhci, pipe->slotid, in);
         if (cc != CC_SUCCESS) {

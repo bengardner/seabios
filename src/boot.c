@@ -476,7 +476,7 @@ get_raw_keystroke(void)
 
 // Read a keystroke - waiting up to 'msec' milliseconds.
 // if msec is -1, wait forever for a keystroke
-static int
+int
 get_keystroke(int msec)
 {
     u32 end = irqtimer_calc(msec);
@@ -610,6 +610,9 @@ interactive_bootmenu(void)
         maxmenu++;
         bs_printf("%d. %s\n", maxmenu, strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
     }
+    if (tpm_can_show_menu()) {
+        bs_printf("\nt. TPM Configuration\n");
+    }
 
     bs_status_printf("Hit 1 - %d or F1 - F%d to boot or ESC to continue", maxmenu, maxmenu);
 
@@ -626,6 +629,10 @@ interactive_bootmenu(void)
             goto bootsplash_off;
         if (scan_code == RAWKEY_ESC && !irqtimer_check(esc_accepted_time))
             continue;
+        if (tpm_can_show_menu() && scan_code == 20 /* t */) {
+            printf("\n");
+            tpm_menu();
+        }
         // map F1-F9 to 1-9
         if ((scan_code >= RAWKEY_F1) && (scan_code <= RAWKEY_F9))
             scan_code = RAWKEY_1 + (scan_code - RAWKEY_F1);

@@ -145,7 +145,7 @@ find_prio(const char *glob)
     dprintf(1, "Searching bootorder for: %s\n", glob);
     int i;
     for (i = 0; i < BootorderCount; i++)
-        if (glob_prefix(glob, Bootorder[i]))
+        if (glob_prefix(glob, Bootorder[i]) || glob_prefix(Bootorder[i], glob))
             return i+1;
     return -1;
 }

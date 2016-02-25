@@ -546,6 +546,8 @@ interactive_bootmenu(void)
     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
         return;
 
+    outb(CPU1900_BOOT_STAGE_SB_BOOTMENU, CPU1900_REG_BIOS_BOOT_STAGE);
+
     // Show menu items
     struct bootentry_s *pos;
     int maxmenu = 0;
@@ -647,6 +649,7 @@ interactive_bootmenu(void)
     bootmenu_select(scan_code - 1);
 
 bootsplash_off:
+    outb(CPU1900_BOOT_STAGE_SB_BOOTMENU_X, CPU1900_REG_BIOS_BOOT_STAGE);
     disable_bootsplash();
 }
 
@@ -857,6 +860,8 @@ do_boot(int seq_nr)
     outb(seq_nr, 0x80);
     outb(ie->type, 0x80);
     outb(0xec, 0x80);
+
+    outb(CPU1900_BOOT_STAGE_SB_PAYLOAD, CPU1900_REG_BIOS_BOOT_STAGE);
 
     switch (ie->type) {
     case IPL_TYPE_FLOPPY:

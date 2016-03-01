@@ -546,6 +546,9 @@ interactive_bootmenu(void)
     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
         return;
 
+    if ((inb(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) != CPU1900_REG_DBG_VAL)
+        return;
+
     outb(CPU1900_BOOT_STAGE_SB_BOOTMENU, CPU1900_REG_BIOS_BOOT_STAGE);
 
     // Show menu items

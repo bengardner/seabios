@@ -74,6 +74,8 @@
 
 /* TPM command tags */
 #define TPM_TAG_RQU_CMD                  0x00c1
+#define TPM_TAG_RQU_AUTH1_CMD            0x00c2
+#define TPM_TAG_RQU_AUTH2_CMD            0x00c3
 
 /* interrupt identifiers (al register) */
 enum irq_ids {
@@ -89,6 +91,7 @@ enum irq_ids {
 
 /* event types: 10.4.1 / table 11 */
 #define EV_POST_CODE             1
+#define EV_NO_ACTION             3
 #define EV_SEPARATOR             4
 #define EV_ACTION                5
 #define EV_EVENT_TAG             6
@@ -361,5 +364,149 @@ struct tpm_res_sha1complete {
 #define TPM_PPI_OP_CLEAR 5
 #define TPM_PPI_OP_SET_OWNERINSTALL_TRUE 8
 #define TPM_PPI_OP_SET_OWNERINSTALL_FALSE 9
+
+/*
+ * TPM 2
+ */
+
+#define TPM2_NO                     0
+#define TPM2_YES                    1
+
+#define TPM2_SU_CLEAR               0x0000
+#define TPM2_SU_STATE               0x0001
+
+#define TPM2_RH_OWNER               0x40000001
+#define TPM2_RS_PW                  0x40000009
+#define TPM2_RH_ENDORSEMENT         0x4000000b
+#define TPM2_RH_PLATFORM            0x4000000c
+
+#define TPM2_ALG_SHA1               0x0004
+
+/* TPM 2 command tags */
+#define TPM2_ST_NO_SESSIONS         0x8001
+#define TPM2_ST_SESSIONS            0x8002
+
+/* TPM 2 commands */
+#define TPM2_CC_HierarchyControl    0x121
+#define TPM2_CC_Clear               0x126
+#define TPM2_CC_ClearControl        0x127
+#define TPM2_CC_HierarchyChangeAuth 0x129
+#define TPM2_CC_SelfTest            0x143
+#define TPM2_CC_Startup             0x144
+#define TPM2_CC_StirRandom          0x146
+#define TPM2_CC_GetRandom           0x17b
+#define TPM2_CC_PCR_Extend          0x182
+
+/* TPM 2 error codes */
+#define TPM2_RC_INITIALIZE          0x100
+
+/* TPM 2 data structures */
+
+struct tpm2b_stir {
+    u16 size;
+    u64 stir;
+} PACKED;
+
+struct tpm2_req_getrandom {
+    struct tpm_req_header hdr;
+    u16 bytesRequested;
+} PACKED;
+
+struct tpm2b_20 {
+    u16 size;
+    u8 buffer[20];
+} PACKED;
+
+struct tpm2_res_getrandom {
+    struct tpm_rsp_header hdr;
+    struct tpm2b_20 rnd;
+} PACKED;
+
+struct tpm2_authblock {
+    u32 handle;
+    u16 noncesize;  /* always 0 */
+    u8 contsession; /* always TPM2_YES */
+    u16 pwdsize;    /* always 0 */
+} PACKED;
+
+struct tpm2_req_hierarchychangeauth {
+    struct tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
+    struct tpm2b_20 newAuth;
+} PACKED;
+
+struct tpm2_digest_value {
+    u32 count; /* 1 entry only */
+    u16 hashalg; /* TPM2_ALG_SHA1 */
+    u8 sha1[SHA1_BUFSIZE];
+} PACKED;
+
+struct tpm2_req_extend {
+    struct tpm_req_header hdr;
+    u32 pcrindex;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
+    struct tpm2_digest_value digest;
+} PACKED;
+
+struct tpm2_req_clearcontrol {
+    struct tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
+    u8 disable;
+} PACKED;
+
+struct tpm2_req_clear {
+    struct tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
+} PACKED;
+
+struct tpm2_req_hierarchycontrol {
+    struct tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
+    u32 enable;
+    u8 state;
+} PACKED;
+
+/* TPM 2 log entry */
+
+struct tpml_digest_values_sha1 {
+    u16 hashtype;
+    u8 sha1[SHA1_BUFSIZE];
+};
+
+struct tcg_pcr_event2_sha1 {
+    u32 pcrindex;
+    u32 eventtype;
+    u32 count; /* number of digests */
+    struct tpml_digest_values_sha1 digests[1];
+    u32 eventdatasize;
+    u8 event[0];
+} PACKED;
+
+struct TCG_EfiSpecIdEventStruct {
+    u8 signature[16];
+    u32 platformClass;
+    u8 specVersionMinor;
+    u8 specVersionMajor;
+    u8 specErrata;
+    u8 uintnSize;
+    u32 numberOfAlgorithms;
+    struct TCG_EfiSpecIdEventAlgorithmSize {
+        u16 algorithmId;
+        u16 digestSize;
+    } digestSizes[1];
+    u8 vendorInfoSize;
+    u8 vendorInfo[0];
+};
+
+#define TPM_TCPA_ACPI_CLASS_CLIENT 0
 
 #endif // tcg.h

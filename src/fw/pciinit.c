@@ -12,6 +12,7 @@
 #include "e820map.h" // e820_add
 #include "hw/ata.h" // PORT_ATA1_CMD_BASE
 #include "hw/pci.h" // pci_config_readl
+#include "hw/pcidevice.h" // pci_probe_devices
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "hw/pci_regs.h" // PCI_COMMAND
 #include "list.h" // struct hlist_node
@@ -26,6 +27,17 @@
 #define PCI_DEVICE_MEM_MIN    (1<<12)  // 4k == page size
 #define PCI_BRIDGE_MEM_MIN    (1<<21)  // 2M == hugepage size
 #define PCI_BRIDGE_IO_MIN      0x1000  // mandated by pci bridge spec
+
+#define PCI_ROM_SLOT 6
+#define PCI_NUM_REGIONS 7
+#define PCI_BRIDGE_NUM_REGIONS 2
+
+enum pci_region_type {
+    PCI_REGION_TYPE_IO,
+    PCI_REGION_TYPE_MEM,
+    PCI_REGION_TYPE_PREFMEM,
+    PCI_REGION_TYPE_COUNT,
+};
 
 static const char *region_type_name[] = {
     [ PCI_REGION_TYPE_IO ]      = "io",
@@ -306,12 +318,11 @@ void pci_resume(void)
 
 static void pci_bios_init_device(struct pci_device *pci)
 {
-    u16 bdf = pci->bdf;
-    dprintf(1, "PCI: init bdf=%02x:%02x.%x id=%04x:%04x\n"
-            , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
-            , pci->vendor, pci->device);
+    dprintf(1, "PCI: init bdf=%pP id=%04x:%04x\n"
+            , pci, pci->vendor, pci->device);
 
     /* map the interrupt */
+    u16 bdf = pci->bdf;
     int pin = pci_config_readb(bdf, PCI_INTERRUPT_PIN);
     if (pin != 0)
         pci_config_writeb(bdf, PCI_INTERRUPT_LINE, pci_slot_get_irq(pci, pin));
@@ -341,9 +352,7 @@ static void pci_enable_default_vga(void)
 
     foreachpci(pci) {
         if (is_pci_vga(pci)) {
-            dprintf(1, "PCI: Using %02x:%02x.%x for primary VGA\n",
-                    pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-                    pci_bdf_to_fn(pci->bdf));
+            dprintf(1, "PCI: Using %pP for primary VGA\n", pci);
             return;
         }
     }
@@ -354,9 +363,7 @@ static void pci_enable_default_vga(void)
         return;
     }
 
-    dprintf(1, "PCI: Enabling %02x:%02x.%x for primary VGA\n",
-            pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-            pci_bdf_to_fn(pci->bdf));
+    dprintf(1, "PCI: Enabling %pP for primary VGA\n", pci);
 
     pci_config_maskw(pci->bdf, PCI_COMMAND, 0,
                      PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
@@ -364,9 +371,7 @@ static void pci_enable_default_vga(void)
     while (pci->parent) {
         pci = pci->parent;
 
-        dprintf(1, "PCI: Setting VGA enable on bridge %02x:%02x.%x\n",
-                pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-                pci_bdf_to_fn(pci->bdf));
+        dprintf(1, "PCI: Setting VGA enable on bridge %pP\n", pci);
 
         pci_config_maskw(pci->bdf, PCI_BRIDGE_CONTROL, 0, PCI_BRIDGE_CTL_VGA);
         pci_config_maskw(pci->bdf, PCI_COMMAND, 0,
@@ -674,6 +679,32 @@ static int pci_bus_hotplug_support(struct pci_bus *bus, u8 pcie_cap)
     return !!shpc_cap;
 }
 
+/* Test whether bridge support forwarding of transactions
+ * of a specific type.
+ * Note: disables bridge's window registers as a side effect.
+ */
+static int pci_bridge_has_region(struct pci_device *pci,
+                                 enum pci_region_type region_type)
+{
+    u8 base;
+
+    switch (region_type) {
+        case PCI_REGION_TYPE_IO:
+            base = PCI_IO_BASE;
+            break;
+        case PCI_REGION_TYPE_PREFMEM:
+            base = PCI_PREF_MEMORY_BASE;
+            break;
+        default:
+            /* Regular memory support is mandatory */
+            return 1;
+    }
+
+    pci_config_writeb(pci->bdf, base, 0xFF);
+
+    return pci_config_readb(pci->bdf, base) != 0;
+}
+
 static int pci_bios_check_devices(struct pci_bus *busses)
 {
     dprintf(1, "PCI: check devices\n");
@@ -821,17 +852,17 @@ static int pci_bios_init_root_regions_mem(struct pci_bus *bus)
 static void
 pci_region_map_one_entry(struct pci_region_entry *entry, u64 addr)
 {
-    u16 bdf = entry->dev->bdf;
     if (entry->bar >= 0) {
-        dprintf(1, "PCI: map device bdf=%02x:%02x.%x"
+        dprintf(1, "PCI: map device bdf=%pP"
                 "  bar %d, addr %08llx, size %08llx [%s]\n",
-                pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf),
+                entry->dev,
                 entry->bar, addr, entry->size, region_type_name[entry->type]);
 
         pci_set_io_region_addr(entry->dev, entry->bar, addr, entry->is64);
         return;
     }
 
+    u16 bdf = entry->dev->bdf;
     u64 limit = addr + entry->size - 1;
     if (entry->type == PCI_REGION_TYPE_IO) {
         pci_config_writeb(bdf, PCI_IO_BASE, addr >> PCI_IO_SHIFT);

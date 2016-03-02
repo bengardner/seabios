@@ -10,6 +10,8 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
+#include "hw/pci.h" // pci_bdf_to_bus
+#include "hw/pcidevice.h" // pci_device
 #include "hw/serialio.h" // serial_debug_putc
 #include "malloc.h" // malloc_tmp
 #include "output.h" // dprintf
@@ -214,6 +216,17 @@ putprettyhex(struct putcinfo *action, u32 val, int width, char padchar, int is_u
     puthex(action, val, count, is_upper_case);
 }
 
+// Output 'struct pci_device' BDF as %02x:%02x.%x
+static void
+put_pci_device(struct putcinfo *action, struct pci_device *pci)
+{
+    puthex(action, pci_bdf_to_bus(pci->bdf), 2);
+    putc(action, ':');
+    puthex(action, pci_bdf_to_dev(pci->bdf), 2);
+    putc(action, '.');
+    puthex(action, pci_bdf_to_fn(pci->bdf), 1);
+}
+
 static inline int
 isdigit(u8 c)
 {
@@ -280,6 +293,12 @@ bvprintf(struct putcinfo *action, const char *fmt, va_list args)
             break;
         case 'p':
             val = va_arg(args, s32);
+            if (!MODESEGMENT && GET_GLOBAL(*(u8*)(n+1)) == 'P') {
+                // %pP is 'struct pci_device' printer
+                put_pci_device(action, (void*)val);
+                n++;
+                break;
+            }
             putc(action, '0');
             putc(action, 'x');
             puthex(action, val, 8, 0);

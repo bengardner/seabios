@@ -21,6 +21,7 @@
 #define DESIGNWARE_I2C_H_INCLUDED
 
 #include <hw/pci.h>
+#include <hw/pcidevice.h>
 
 /* SMBus controller settings in PCI configuration space */
 #define I2C_PCI_VENDOR_ID	0x8086

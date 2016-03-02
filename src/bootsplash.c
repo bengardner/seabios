@@ -16,6 +16,7 @@
 #include "string.h" // memset
 #include "util.h" // enable_bootsplash
 #include "hw/pci.h"
+#include "hw/pcidevice.h"
 #include "hw/pci_ids.h"
 #include "hw/pci_regs.h"
 #include "image.h"

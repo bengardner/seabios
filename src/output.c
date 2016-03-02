@@ -220,11 +220,11 @@ putprettyhex(struct putcinfo *action, u32 val, int width, char padchar, int is_u
 static void
 put_pci_device(struct putcinfo *action, struct pci_device *pci)
 {
-    puthex(action, pci_bdf_to_bus(pci->bdf), 2);
+    puthex(action, pci_bdf_to_bus(pci->bdf), 2, 0);
     putc(action, ':');
-    puthex(action, pci_bdf_to_dev(pci->bdf), 2);
+    puthex(action, pci_bdf_to_dev(pci->bdf), 2, 0);
     putc(action, '.');
-    puthex(action, pci_bdf_to_fn(pci->bdf), 1);
+    puthex(action, pci_bdf_to_fn(pci->bdf), 1, 0);
 }
 
 static inline int

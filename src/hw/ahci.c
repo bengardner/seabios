@@ -151,22 +151,22 @@ static int ahci_command(struct ahci_port_s *port_gf, int iswrite, int isatapi,
                 }
             }
             if (timer_check(end)) {
-                dprintf(1, "AHCI/%d timeout intbits 0x%x FIS=[%02x %02x %02x %02x|%02x %02x %02x %02x|%02x %02x %02x %02x|%02x %02x %02x %02x]\n",
+                dprintf(1, "AHCI/%d timeout intbits 0x%x FIS=[%02x %02x %02x %02x|%02x%02x%02x %02x|%02x%02x%02x %02x|%02x%02x %02x %02x]\n",
                         pnr, intbits,
                         cmd->fis.reg,
                         cmd->fis.pmp_type,
                         cmd->fis.command,
                         cmd->fis.feature,
-                        cmd->fis.lba_low,
-                        cmd->fis.lba_mid,
                         cmd->fis.lba_high,
+                        cmd->fis.lba_mid,
+                        cmd->fis.lba_low,
                         cmd->fis.device,
-                        cmd->fis.lba_low2,
-                        cmd->fis.lba_mid2,
                         cmd->fis.lba_high2,
+                        cmd->fis.lba_mid2,
+                        cmd->fis.lba_low2,
                         cmd->fis.feature2,
-                        cmd->fis.sector_count,
                         cmd->fis.sector_count2,
+                        cmd->fis.sector_count,
                         cmd->fis.res_1,
                         cmd->fis.control);
                 warn_timeout();
@@ -176,6 +176,24 @@ static int ahci_command(struct ahci_port_s *port_gf, int iswrite, int isatapi,
         }
         dprintf(8, "AHCI/%d: ... intbits 0x%x, status 0x%x ...\n",
                 pnr, intbits, status);
+        dprintf(1, "AHCI/%d intbits=0x%x status=0x%x FIS=[%02x %02x %02x %02x|%02x%02x%02x %02x|%02x%02x%02x %02x|%02x%02x %02x %02x]\n",
+                pnr, intbits, status,
+                cmd->fis.reg,
+                cmd->fis.pmp_type,
+                cmd->fis.command,
+                cmd->fis.feature,
+                cmd->fis.lba_high,
+                cmd->fis.lba_mid,
+                cmd->fis.lba_low,
+                cmd->fis.device,
+                cmd->fis.lba_high2,
+                cmd->fis.lba_mid2,
+                cmd->fis.lba_low2,
+                cmd->fis.feature2,
+                cmd->fis.sector_count2,
+                cmd->fis.sector_count,
+                cmd->fis.res_1,
+                cmd->fis.control);
     } while (status & ATA_CB_STAT_BSY);
 
     success = (0x00 == (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_DF |

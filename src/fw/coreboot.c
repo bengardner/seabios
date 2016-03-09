@@ -86,6 +86,41 @@ struct cbmem_console {
 } PACKED;
 static struct cbmem_console *cbcon = NULL;
 
+#define CB_TAG_BOOT_MEDIA_PARAMS 0x0030
+struct cb_boot_media_params {
+    u32 tag;
+    u32 size;
+    /* offsets are relative to start of boot media */
+    u64 fmap_offset;
+    u64 cbfs_offset;
+    u64 cbfs_size;
+    u64 boot_media_size;
+};
+
+#define FMAP_SIGNATURE     "__FMAP__"
+#define FMAP_VER_MAJOR     1   /* this header's FMAP minor version */
+#define FMAP_VER_MINOR     1   /* this header's FMAP minor version */
+#define FMAP_STRLEN        32  /* maximum length for strings, */
+
+/* Mapping of volatile and static regions in firmware binary */
+struct fmap_area {
+    u32 offset;            /* offset relative to base */
+    u32 size;              /* size in bytes */
+    u8  name[FMAP_STRLEN]; /* descriptive name */
+    u16 flags;             /* flags for this area */
+} PACKED;
+
+struct fmap {
+    u8  signature[8];      /* "__FMAP__" (0x5F5F464D41505F5F) */
+    u8  ver_major;         /* major version */
+    u8  ver_minor;         /* minor version */
+    u64 base;              /* address of the firmware binary */
+    u32 size;              /* size of firmware binary in bytes */
+    u8  name[FMAP_STRLEN]; /* name of this firmware binary */
+    u16 nareas;            /* number of areas described by fmap_areas[] below */
+    struct fmap_area areas[];
+} PACKED;
+
 static u16
 ipchksum(char *buf, int count)
 {
@@ -159,6 +194,39 @@ find_cb_table(void)
 
 static struct cb_memory *CBMemTable;
 const char *CBvendor = "", *CBpart = "";
+struct fmap *CBfmap;
+
+static void
+fmap_init(struct fmap *fm)
+{
+    if (memcmp(fm->signature, FMAP_SIGNATURE, sizeof(fm->signature)) != 0) {
+        dprintf(1, "FMAP: bad signature\n");
+        return;
+    }
+    if ((fm->ver_major != FMAP_VER_MAJOR) ||
+        (fm->ver_minor != FMAP_VER_MINOR)) {
+        dprintf(1, "FMAP: bad version %d.%d\n", fm->ver_major, fm->ver_minor);
+        return;
+    }
+
+    /* print out the FMAP contents */
+    void *base = (void *)(uintptr_t)fm->base;
+    dprintf(1, "FMAP: %p 0x%08x 0x%04x %s\n",
+            base, fm->size, fm->nareas, fm->name);
+
+    int idx;
+    for (idx = 0; idx < fm->nareas; idx++) {
+        struct fmap_area *fa = &fm->areas[idx];
+        const u8 *ptr = base + fa->offset;
+        int is_cbfs = (fa->size > 4096) && (memcmp(ptr, "LARCHIVE", 8) == 0);
+        dprintf(is_cbfs ? 1 : 3,
+                "  [%d] %p 0x%08x 0x%04x %s%s\n",
+                idx, ptr, fa->size, fa->flags, fa->name,
+                is_cbfs ? "(CBFS)" : "");
+    }
+    /* looks good -- save the FMAP pointer for later */
+    CBfmap = fm;
+}
 
 // Populate max ram and e820 map info by scanning for a coreboot table.
 void
@@ -203,6 +271,17 @@ coreboot_preinit(void)
         CBvendor = &cbmb->strings[cbmb->vendor_idx];
         CBpart = &cbmb->strings[cbmb->part_idx];
         dprintf(1, "Found mainboard %s %s\n", CBvendor, CBpart);
+    }
+
+    struct cb_boot_media_params *cbbmb = find_cb_subtable(cbh, CB_TAG_BOOT_MEDIA_PARAMS);
+    if (cbbmb) {
+       /* ~0 is used to indicate 'not present' */
+       if ((cbbmb->fmap_offset + 1) != 0) {
+           /* Assuming the ROM map ends at 4 GB */
+           u8 *base = (u8 *)(u32)~(cbbmb->boot_media_size - 1);
+           struct fmap *fm = (void *)(base + cbbmb->fmap_offset);
+           fmap_init(fm);
+       }
     }
 
     return;
@@ -414,30 +493,11 @@ process_links_file(void)
     free(links);
 }
 
-void
-coreboot_cbfs_init(void)
+static void
+coreboot_cbfs_scan(struct cbfs_file *fhdr, u32 romsize, u32 align)
 {
-    if (!CONFIG_COREBOOT_FLASH)
-        return;
+    u32 romstart = (u32)fhdr;
 
-    struct cbfs_header *hdr = *(void **)(CONFIG_CBFS_LOCATION - 4);
-    if ((u32)hdr & 0x03) {
-        dprintf(1, "Invalid CBFS pointer %p\n", hdr);
-        return;
-    }
-    if (CONFIG_CBFS_LOCATION && (u32)hdr > CONFIG_CBFS_LOCATION)
-        // Looks like the pointer is relative to CONFIG_CBFS_LOCATION
-        hdr = (void*)hdr + CONFIG_CBFS_LOCATION;
-    if (hdr->magic != cpu_to_be32(CBFS_HEADER_MAGIC)) {
-        dprintf(1, "Unable to find CBFS (ptr=%p; got %x not %x)\n"
-                , hdr, hdr->magic, cpu_to_be32(CBFS_HEADER_MAGIC));
-        return;
-    }
-    dprintf(1, "Found CBFS header at %p\n", hdr);
-
-    u32 romsize = be32_to_cpu(hdr->romsize);
-    u32 romstart = CONFIG_CBFS_LOCATION - romsize;
-    struct cbfs_file *fhdr = (void*)romstart + be32_to_cpu(hdr->offset);
     for (;;) {
         if ((u32)fhdr - romstart > romsize)
             break;
@@ -464,8 +524,48 @@ coreboot_cbfs_init(void)
         }
         romfile_add(&cfile->file);
 
-        fhdr = (void*)ALIGN((u32)cfile->data + cfile->rawsize
-                            , be32_to_cpu(hdr->align));
+        fhdr = (void*)ALIGN((u32)cfile->data + cfile->rawsize, align);
+    }
+}
+
+void
+coreboot_cbfs_init(void)
+{
+    if (!CONFIG_COREBOOT_FLASH)
+        return;
+
+    if (CBfmap) {
+        void *base = (void *)(uintptr_t)CBfmap->base;
+        int idx;
+
+        for (idx = 0; idx < CBfmap->nareas; idx++) {
+            struct fmap_area *fa = &CBfmap->areas[idx];
+            struct cbfs_file *cf = (struct cbfs_file *)(base + fa->offset);
+            if (fa->size > 4096) {
+                coreboot_cbfs_scan(cf, fa->size, 64);
+            }
+        }
+    } else {
+        /* no FMAP - read CBFS header location from last 4 bytes of ROM */
+        struct cbfs_header *hdr = *(void **)(CONFIG_CBFS_LOCATION - 4);
+        if ((u32)hdr & 0x03) {
+            dprintf(1, "Invalid CBFS pointer %p\n", hdr);
+            return;
+        }
+        if (CONFIG_CBFS_LOCATION && (u32)hdr > CONFIG_CBFS_LOCATION)
+            // Looks like the pointer is relative to CONFIG_CBFS_LOCATION
+            hdr = (void*)hdr + CONFIG_CBFS_LOCATION;
+        if (hdr->magic != cpu_to_be32(CBFS_HEADER_MAGIC)) {
+            dprintf(1, "Unable to find CBFS (ptr=%p; got %x not %x)\n",
+                    hdr, hdr->magic, cpu_to_be32(CBFS_HEADER_MAGIC));
+            return;
+        }
+        dprintf(1, "Found CBFS header at %p\n", hdr);
+
+        u32 romsize = be32_to_cpu(hdr->romsize);
+        u32 romstart = CONFIG_CBFS_LOCATION - romsize;
+        struct cbfs_file *fhdr = (void*)romstart + be32_to_cpu(hdr->offset);
+        coreboot_cbfs_scan(fhdr, romsize, be32_to_cpu(hdr->align));
     }
 
     process_links_file();

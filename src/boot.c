@@ -21,7 +21,7 @@
 #include "string.h" // memset
 #include "util.h" // irqtimer_calc
 #include "tcgbios.h" // tpm_*
-#include "hw/wabtec-cpu1900.h"
+#include "hw/wabtec-cpu1900-io.h"
 
 // scan codes for get_keystroke()
 // these should be elsewhere in a header file.
@@ -533,7 +533,7 @@ bootmenu_select(int choice)
 //static void
 //cpu1900_bootmenu_default(void)
 //{
-//    int choice = inb(CPU1900_REG_SCRATCH) & 0x0f;
+//    int choice = fpga_read_u8(CPU1900_REG_SCRATCH) & 0x0f;
 //    bs_printf("CPU1900: scratch=0x%02x\n", choice);
 //    bootmenu_select(choice);
 //}
@@ -547,10 +547,10 @@ interactive_bootmenu(void)
     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
         return;
 
-    if ((inb(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) != CPU1900_REG_DBG_VAL)
+    if ((fpga_read_u8(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) != CPU1900_REG_DBG_VAL)
         return;
 
-    outb(CPU1900_BOOT_STAGE_SB_BOOTMENU, CPU1900_REG_BIOS_BOOT_STAGE);
+    fpga_write_u8(CPU1900_REG_BIOS_BOOT_STAGE, CPU1900_BOOT_STAGE_SB_SPLASH);
 
     // Show menu items
     struct bootentry_s *pos;
@@ -653,7 +653,7 @@ interactive_bootmenu(void)
     bootmenu_select(scan_code - 1);
 
 bootsplash_off:
-    outb(CPU1900_BOOT_STAGE_SB_BOOTMENU_X, CPU1900_REG_BIOS_BOOT_STAGE);
+    fpga_write_u8(CPU1900_REG_BIOS_BOOT_STAGE, CPU1900_BOOT_STAGE_SB_SPLASH_OFF);
     disable_bootsplash();
 }
 
@@ -865,7 +865,7 @@ do_boot(int seq_nr)
     outb(ie->type, 0x80);
     outb(0xec, 0x80);
 
-    outb(CPU1900_BOOT_STAGE_SB_PAYLOAD, CPU1900_REG_BIOS_BOOT_STAGE);
+    fpga_write_u8(CPU1900_REG_BIOS_BOOT_STAGE, CPU1900_BOOT_STAGE_SB_PAYLOAD);
 
     switch (ie->type) {
     case IPL_TYPE_FLOPPY:
@@ -918,8 +918,8 @@ handle_19(void)
     debug_enter(NULL, DEBUG_HDL_19);
 
     /* set the Status LED back to the default */
-    outb(CPU1900_LED_GREEN_BLINK, CPU1900_REG_STATUS_LED_DUTY);
-    outb(CPU1900_LED_2_HZ, CPU1900_REG_STATUS_LED_RATE);
+    fpga_write_u8(CPU1900_REG_STATUS_LED_DUTY, CPU1900_LED_GREEN_BLINK);
+    fpga_write_u8(CPU1900_REG_STATUS_LED_RATE, CPU1900_LED_2_HZ);
 
     BootSequence = 0;
     do_boot(0);

@@ -134,6 +134,7 @@
 				<F N="src/hw/virtio-ring.h"/>
 				<F N="src/hw/virtio-scsi.c"/>
 				<F N="src/hw/virtio-scsi.h"/>
+				<F N="src/hw/wabtec-cpu1900-io.h"/>
 				<F N="src/hw/wabtec-cpu1900.h"/>
 			</Folder>
 			<Folder Name="std">

@@ -18,7 +18,7 @@
 #include "stacks.h" // call16_int
 #include "string.h" // memset
 #include "util.h" // ScreenAndDebug
-#include "hw/wabtec-cpu1900.h"
+#include "hw/wabtec-cpu1900-io.h"
 
 struct putcinfo {
     void (*func)(struct putcinfo *info, char c);
@@ -40,7 +40,7 @@ static int debug_loglevel;
 int debug_level_enabled(int msg_level)
 {
     if (debug_loglevel == 0) {
-        if ((inb(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) == CPU1900_REG_DBG_VAL)
+        if ((fpga_read_u8(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) == CPU1900_REG_DBG_VAL)
             debug_loglevel = (CONFIG_DEBUG_LEVEL_DEBUG == 0) ? -1 : CONFIG_DEBUG_LEVEL_DEBUG;
         else
             debug_loglevel = (CONFIG_DEBUG_LEVEL == 0) ? -1 : CONFIG_DEBUG_LEVEL;

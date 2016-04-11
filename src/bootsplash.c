@@ -22,7 +22,7 @@
 #include "image.h"
 #include "std/vbe.h" // VBE_CAPABILITY_8BIT_DAC
 #include "std/smbios.h"
-#include "hw/wabtec-cpu1900.h"
+#include "hw/wabtec-cpu1900-io.h"
 #include "hw/designware-i2c.h"
 
 extern u32 CpuKHz VARFSEG;
@@ -207,7 +207,7 @@ static const char *cpu1900_get_reset_cause(void)
         "[6] Timeout",
         "[7] Invalid"
     };
-    return reset_cause_text[inb(CPU1900_REG_RESET_CAUSE) & CPU1900_REG_RESET_CAUSE__MASK];
+    return reset_cause_text[fpga_read_u8(CPU1900_REG_RESET_CAUSE) & CPU1900_REG_RESET_CAUSE__M];
 }
 
 static void print_bios_info(void)
@@ -236,7 +236,7 @@ static void print_bios_info(void)
     }
 
     bs_printf("RAM:        %d MB\n", estimateRamSize_MB());
-    bs_printf("Slot ID:    %d\n", (inb(CPU1900_REG_SLOTID) & CPU1900_REG_SLOTID__ID));
+    bs_printf("Slot ID:    %d\n", (fpga_read_u8(CPU1900_REG_SLOTID) & CPU1900_REG_SLOTID__ID));
 
     /* log what is in the PCIe slots (8086:0f48=BP Eth, 8086:0f4c=ExpSlot, 8086:0f4e=FP Eth)
 
@@ -281,10 +281,10 @@ static void print_bios_info(void)
     }
 
     bs_printf("FPGA Info:  Rev:%d.%d HW:0x%02x Opt:0x%02x\n",
-              inb(CPU1900_REG_FPGA_MAJOR_REV),
-              inb(CPU1900_REG_FPGA_MINOR_REV),
-              inb(CPU1900_REG_HW_REV),
-              inb(CPU1900_REG_FPGA_OPTIONS));
+              fpga_read_u8(CPU1900_REG_FPGA_MAJOR_REV),
+              fpga_read_u8(CPU1900_REG_FPGA_MINOR_REV),
+              fpga_read_u8(CPU1900_REG_HW_REV),
+              fpga_read_u8(CPU1900_REG_FPGA_OPTIONS));
     bs_printf("Last Reset: %s\n", cpu1900_get_reset_cause());
     //TODO: CFast Size/detected?
     //TODO: MMC size/detected?
@@ -597,13 +597,13 @@ void bootsplash_show_paused(void)
 
 void waitforinput_start(void)
 {
-    outb(0, CPU1900_REG_DTE_LED_RATE);
-    outb(CPU1900_LED_GREEN_BLINK, CPU1900_REG_DTE_LED_DUTY);
+    fpga_write_u8(CPU1900_REG_DTE_LED_RATE, 0);
+    fpga_write_u8(CPU1900_REG_DTE_LED_DUTY, CPU1900_LED_GREEN_BLINK);
 }
 
 void waitforinput_stop(void)
 {
     /* Back to the DTE default */
-    outb(4, CPU1900_REG_DTE_LED_RATE);
-    outb(CPU1900_LED_BLACK, CPU1900_REG_DTE_LED_DUTY);
+    fpga_write_u8(CPU1900_REG_DTE_LED_RATE, 4);
+    fpga_write_u8(CPU1900_REG_DTE_LED_DUTY, CPU1900_LED_BLACK);
 }

@@ -210,6 +210,54 @@ static const char *cpu1900_get_reset_cause(void)
     return reset_cause_text[fpga_read_u8(CPU1900_REG_RESET_CAUSE) & CPU1900_REG_RESET_CAUSE__M];
 }
 
+/** the I2C transaction should take 100 us, but may take up to 300 us */
+#define I2C_GPIO_USEC   100
+
+static int cpu1900_fpga_i2c_wait_idle(void)
+{
+	int retry = 5;
+	u8  val;
+
+	while ((((val = fpga_read_u8(CPU1900_REG_I2C_CS)) & CPU1900_REG_I2C_CS__BUSY) != 0) &&
+	       (retry-- > 0)) {
+		udelay(I2C_GPIO_USEC);
+	}
+	if (val & CPU1900_REG_I2C_CS__BUSY)
+		printk(BIOS_WARNING, "CPU1900 FPGA I2C idle timeout\n");
+	return val;
+}
+
+
+static int cpu1900_fpga_i2c_read(void)
+{
+	fpga_write_u8(CPU1900_REG_I2C_CS,
+	              CPU1900_REG_I2C_CS__RW | CPU1900_REG_I2C_CS__BANK__IN);
+	cpu1900_fpga_i2c_wait_idle();
+	return fpga_read_u16(CPU1900_REG_I2C_IN_0);
+}
+
+
+static int cpu1900_fpga_read_slotid(void)
+{
+	u8 val;
+	u8 sid = fpga_read_u8(CPU1900_REG_SLOTID) & 0x7f;
+
+	/* see if the I2C interface is present (means SlotID is not) */
+	val = fpga_read_u8(CPU1900_REG_I2C_INFO);
+	if ((val & CPU1900_REG_I2C_INFO__PRESENT) == 0)
+		return sid;
+
+	/* make sure we have the right board revision */
+	val &= CPU1900_REG_I2C_INFO__REVISION;
+	if (val == CPU1900_REG_I2C_INFO__REVISION__PCA9539) {
+		sid &= 0x60; // keep VIN1, VIN2 status
+		return sid | (cpu1900_fpga_i2c_read() & 0x1f);
+	}
+	printk(BIOS_ERR, "CPU1900 FPGA I2C Unknown revision 0x%02\n", val);
+	return sid; // fallback to whatever is in the SLOTID register
+}
+
+
 static void print_bios_info(void)
 {
     const struct smbios_type_0 *tbl_0 = smbios_get_table(0, sizeof(*tbl_0));
@@ -236,7 +284,7 @@ static void print_bios_info(void)
     }
 
     bs_printf("RAM:        %d MB\n", estimateRamSize_MB());
-    bs_printf("Slot ID:    %d\n", (fpga_read_u8(CPU1900_REG_SLOTID) & CPU1900_REG_SLOTID__ID));
+    bs_printf("Slot ID:    %d\n", (cpu1900_fpga_read_slotid() & CPU1900_REG_SLOTID__ID));
 
     /* log what is in the PCIe slots (8086:0f48=BP Eth, 8086:0f4c=ExpSlot, 8086:0f4e=FP Eth)
 

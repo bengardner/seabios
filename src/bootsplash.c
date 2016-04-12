@@ -223,7 +223,7 @@ static int cpu1900_fpga_i2c_wait_idle(void)
 		udelay(I2C_GPIO_USEC);
 	}
 	if (val & CPU1900_REG_I2C_CS__BUSY)
-		printk(BIOS_WARNING, "CPU1900 FPGA I2C idle timeout\n");
+		dprintf(1, "CPU1900 FPGA I2C idle timeout\n");
 	return val;
 }
 
@@ -253,7 +253,7 @@ static int cpu1900_fpga_read_slotid(void)
 		sid &= 0x60; // keep VIN1, VIN2 status
 		return sid | (cpu1900_fpga_i2c_read() & 0x1f);
 	}
-	printk(BIOS_ERR, "CPU1900 FPGA I2C Unknown revision 0x%02\n", val);
+	dprintf(1, "CPU1900 FPGA I2C Unknown revision 0x%02x\n", val);
 	return sid; // fallback to whatever is in the SLOTID register
 }
 

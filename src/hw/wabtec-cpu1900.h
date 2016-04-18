@@ -131,17 +131,17 @@
 #define   CPU1900_REG_W1__SEQ__WRITE8                           0x40
 #define   CPU1900_REG_W1__SEQ__TRIPLET                          0x50
 
-#define CPU1900_REG_W1_STATUS                   (0x80)
+#define CPU1900_REG_W1_CONTROL                  (0x80)
+#define  CPU1900_REG_W1_CONTROL__SEQ                    CPU1900_REG_W1__SEQ
+#define  CPU1900_REG_W1_CONTROL__PU_STRONG              0x08
+#define  CPU1900_REG_W1_CONTROL__PU_ACTIVE              0x04
+#define  CPU1900_REG_W1_CONTROL__WRITE                  0x01
+#define CPU1900_REG_W1_STATUS                   (0x81)
 #define  CPU1900_REG_W1_STATUS__BUSY                    0x80
 #define  CPU1900_REG_W1_STATUS__SEQ                     CPU1900_REG_W1__SEQ
 #define  CPU1900_REG_W1_STATUS__ERROR                   0x04
 #define  CPU1900_REG_W1_STATUS__LEVEL                   0x02
 #define  CPU1900_REG_W1_STATUS__RESULT                  0x01
-#define CPU1900_REG_W1_CONTROL                  (0x81)
-#define  CPU1900_REG_W1_CONTROL__SEQ                    CPU1900_REG_W1__SEQ
-#define  CPU1900_REG_W1_CONTROL__PU_STRONG              0x08
-#define  CPU1900_REG_W1_CONTROL__PU_ACTIVE              0x04
-#define  CPU1900_REG_W1_CONTROL__WRITE                  0x01
 #define CPU1900_REG_W1_DATA                     (0x82)
 
 enum cpu1900_boot_stage {

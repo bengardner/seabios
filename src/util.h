@@ -44,6 +44,7 @@ void enable_bootsplash(const char *menukey_text);
 void disable_bootsplash(void);
 int get_bootsplash_active(void);
 void bootsplash_show_paused(void);
+void print_bios_info(void);
 
 void waitforinput_start(void);
 void waitforinput_stop(void);

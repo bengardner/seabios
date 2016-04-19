@@ -258,7 +258,7 @@ static int cpu1900_fpga_read_slotid(void)
 }
 
 
-static void print_bios_info(void)
+void print_bios_info(void)
 {
     const struct smbios_type_0 *tbl_0 = smbios_get_table(0, sizeof(*tbl_0));
     dprintf(1, "\n");

@@ -570,8 +570,11 @@ interactive_bootmenu(void)
     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
         return;
 
-    if ((fpga_read_u8(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) != CPU1900_REG_DBG_VAL)
+    if ((fpga_read_u8(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) != CPU1900_REG_DBG_VAL) {
+        print_bios_info();
+        dprintf(1, "\n");
         return;
+    }
 
     fpga_write_u8(CPU1900_REG_BIOS_BOOT_STAGE, CPU1900_BOOT_STAGE_SB_SPLASH);
 

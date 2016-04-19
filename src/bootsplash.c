@@ -401,7 +401,6 @@ void bs_status_print(const char *text)
         textbox_draw_text(&g_textbox, text);
         textbox_ctx_restore(&g_textbox, &ctx);
     }
-    dprintf(1, "\n%s\n", text);
 }
 
 void bs_wait_loop(u32 tick_left)
@@ -427,7 +426,6 @@ void bs_wait_loop(u32 tick_left)
                     //textbox_clear_line(&g_textbox, g_textbox.c.row);
                     textbox_draw_text(&g_textbox, buf);
                     textbox_ctx_restore(&g_textbox, &ctx);
-                    dprintf(1, "%s\n", buf);
                 }
             }
         }
@@ -622,6 +620,7 @@ void enable_bootsplash(const char *menukey_text)
     print_bios_info();
     bs_status_printf("Press %s to select a boot device.%s", menukey_text,
                      BootsplashActive ? " Hit F1 to freeze this screen." : "");
+    dprintf(1, "\nPress ENTER to select a boot device.\n\n");
 }
 
 void
@@ -640,7 +639,9 @@ int get_bootsplash_active(void)
 
 void bootsplash_show_paused(void)
 {
-    bs_status_print("Screen frozen. Press a key to reboot.");
+    const char *msg = "Screen frozen. Press a key to reboot.";
+    bs_status_print(msg);
+    dprintf(1, "\n%s\n", msg);
 }
 
 void waitforinput_start(void)

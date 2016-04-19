@@ -85,7 +85,7 @@ find_videomode(struct vbe_info *vesa_info, struct vbe_mode_info *mode_info
         br.es = FLATPTR_TO_SEG(mode_info);
         call16_int10(&br);
         if (br.ax != 0x4f) {
-            dprintf(3, "get_mode failed asking for mode %x.\n", videomode);
+            dprintf(4, "get_mode failed asking for mode %x.\n", videomode);
             continue;
         }
         if (mode_info->xres != width
@@ -261,6 +261,7 @@ static int cpu1900_fpga_read_slotid(void)
 static void print_bios_info(void)
 {
     const struct smbios_type_0 *tbl_0 = smbios_get_table(0, sizeof(*tbl_0));
+    dprintf(1, "\n");
     if (tbl_0) {
         const char *str_arr = ((const char *)tbl_0) + sizeof(struct smbios_type_0);
         bs_printf("Coreboot:   %s, %s [%s]\n",
@@ -534,7 +535,7 @@ _enable_bootsplash(void)
         }
         bmp_get_size(bmp, &width, &height, &bpp);
         bpp_require = 24;
-        dprintf(3, "bootsplash.bmp is %d x %d (%d bpp)\n",
+        dprintf(4, "bootsplash.bmp is %d x %d (%d bpp)\n",
                 width, height, bpp);
     }
     /* jpeg would use 16 or 24 bpp video mode, BMP use 24bpp mode only */
@@ -543,16 +544,16 @@ _enable_bootsplash(void)
     int videomode = find_videomode(vesa_info, mode_info, width, height,
                                    bpp_require);
     if (videomode < 0) {
-        dprintf(1, "failed to find a videomode with %dx%d %dbpp (0=any).\n",
+        dprintf(1, "Failed to find a videomode with %dx%d %dbpp (0=any).\n",
                 width, height, bpp_require);
         goto done;
     }
     void *framebuffer = (void *)mode_info->phys_base;
     int depth = mode_info->bits_per_pixel;
-    dprintf(3, "mode: %04x\n", videomode);
-    dprintf(3, "framebuffer: %p\n", framebuffer);
-    dprintf(3, "bytes per scanline: %d\n", mode_info->bytes_per_scanline);
-    dprintf(3, "bits per pixel: %d\n", depth);
+    dprintf(4, "mode: %04x\n", videomode);
+    dprintf(4, "framebuffer: %p\n", framebuffer);
+    dprintf(4, "bytes per scanline: %d\n", mode_info->bytes_per_scanline);
+    dprintf(4, "bits per pixel: %d\n", depth);
 
     // Allocate space for image and decompress it.
     int imagesize = height * mode_info->bytes_per_scanline;

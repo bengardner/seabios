@@ -594,8 +594,6 @@ interactive_bootmenu(void)
     const char *menukey_text = MENUKEY_TEXT(boot_menu_key);
     if (bootmsg)
         bs_print(bootmsg);
-    else
-        bs_printf("\nPress %s for boot menu.\n\n", menukey_text);
     free(bootmsg);
 
     u32 menutime = romfile_loadint("etc/boot-menu-wait", DEFAULT_BOOTMENU_WAIT);

@@ -22,6 +22,7 @@
 #include "util.h" // irqtimer_calc
 #include "tcgbios.h" // tpm_*
 #include "hw/wabtec-cpu1900-io.h"
+#include "hw/serialio.h"
 
 // scan codes for get_keystroke()
 // these should be elsewhere in a header file.
@@ -35,6 +36,7 @@
 #define RAWKEY_7                 0x08
 #define RAWKEY_8                 0x09
 #define RAWKEY_9                 0x0a
+#define RAWKEY_ENTER             0x1c
 #define RAWKEY_F1                0x3B
 #define RAWKEY_F2                0x3C
 #define RAWKEY_F3                0x3D
@@ -475,15 +477,36 @@ get_raw_keystroke(void)
     return br.ah;
 }
 
+/* only care about 1-9 and enter right now */
+static int
+translate_char_to_keystroke(int val)
+{
+    /* translate '1'..'9' to 0x02..0x0a */
+    if ((val >= '1') && (val <= '9')) {
+        return RAWKEY_1 + val - '1';
+    }
+    if ((val == '\r') || (val == '\n')) {
+        return RAWKEY_ENTER;
+    }
+    return -1;
+}
+
 // Read a keystroke - waiting up to 'msec' milliseconds.
 // if msec is -1, wait forever for a keystroke
 int
 get_keystroke(int msec)
 {
     u32 end = irqtimer_calc(msec);
+    int val;
+
     for (;;) {
         if (check_for_keystroke())
             return get_raw_keystroke();
+
+        val = translate_char_to_keystroke(serial_debug_getc());
+        if (val != -1)
+            return val;
+
         if ((msec != -1) && irqtimer_check(end))
             return -1;
 
@@ -599,8 +622,9 @@ interactive_bootmenu(void)
         goto bootsplash_off;
     }
 
-    if (scan_code != menukey_code)
+    if ((scan_code != menukey_code) && (scan_code != RAWKEY_ENTER)) {
         goto bootsplash_off;
+    }
 
     while (get_keystroke(0) >= 0)
         ;
@@ -621,6 +645,7 @@ interactive_bootmenu(void)
     }
 
     bs_status_printf("Hit 1 - %d or F1 - F%d to boot or ESC to continue", maxmenu, maxmenu);
+    dprintf(1, "\nHit 1 - %d to boot or ENTER to continue\n", maxmenu);
 
     // Get key press.  If the menu key is ESC, do not restart boot unless
     // 1.5 seconds have passed.  Otherwise users (trained by years of
@@ -631,10 +656,12 @@ interactive_bootmenu(void)
         waitforinput_start();
         scan_code = get_keystroke(15000);
         waitforinput_stop();
-        if (scan_code < 0)
+        if (scan_code < 0) // timeout
             goto bootsplash_off;
-        if (scan_code == RAWKEY_ESC && !irqtimer_check(esc_accepted_time))
+        if ((scan_code == RAWKEY_ESC) && !irqtimer_check(esc_accepted_time))
             continue;
+        if (scan_code == RAWKEY_ENTER)
+            break;
         if (tpm_can_show_menu() && scan_code == 20 /* t */) {
             printf("\n");
             tpm_menu();
@@ -646,11 +673,10 @@ interactive_bootmenu(void)
             break;
     }
     printf("\n");
-    if (scan_code == RAWKEY_ESC)
-        goto bootsplash_off;
 
     // Find entry and make top priority.
-    bootmenu_select(scan_code - 1);
+    if (scan_code >= 1 && scan_code <= maxmenu + 1)
+        bootmenu_select(scan_code - 1);
 
 bootsplash_off:
     fpga_write_u8(CPU1900_REG_BIOS_BOOT_STAGE, CPU1900_BOOT_STAGE_SB_SPLASH_OFF);

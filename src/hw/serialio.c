@@ -59,6 +59,18 @@ serial_debug_putc(char c)
     serial_debug(c);
 }
 
+int
+serial_debug_getc(void)
+{
+    if (!CONFIG_DEBUG_SERIAL)
+        return -1;
+
+    if ((inb(CONFIG_DEBUG_SERIAL_PORT + SEROFF_LSR) & 0x01) != 0)
+        return inb(CONFIG_DEBUG_SERIAL_PORT + SEROFF_DATA);
+
+    return -1;
+}
+
 // Make sure all serial port writes have been completely sent.
 void
 serial_debug_flush(void)

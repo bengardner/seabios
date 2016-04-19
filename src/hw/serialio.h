@@ -25,5 +25,6 @@ void serial_debug_putc(char c);
 void serial_debug_flush(void);
 extern u16 DebugOutputPort;
 void qemu_debug_putc(char c);
+int serial_debug_getc(void);
 
 #endif // serialio.h

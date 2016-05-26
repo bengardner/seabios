@@ -146,17 +146,20 @@ static int tmp75c_temp_read(void)
 {
 	struct pci_device *pdev = pci_find_device(0x8086, 0xf43);
 	u8 buf[2];
+	int retval = -1;
 
 	if (dw_i2c_init(pdev) != I2C_SUCCESS)
 		return -1;
 
-	if (dw_i2c_read(pdev, 0x48, 0x00, buf, 2) != I2C_SUCCESS)
-		return -1;
+	if (dw_i2c_read(pdev, 0x48, 0x00, buf, 2) == I2C_SUCCESS) {
+		// round up and discard fractional part
+		if (buf[1] > 0x7f)
+			buf[0]++;
+		retval = (s8)buf[0];
+	}
+	dw_i2c_close(pdev);
 
-	// round up and discard fractional part
-	if (buf[1] > 0x7f)
-		buf[0]++;
-	return (s8)buf[0];
+	return retval;
 }
 
 /**

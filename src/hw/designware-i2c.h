@@ -129,6 +129,7 @@
 
 /* Prototype section */
 int dw_i2c_init(struct pci_device *dev);
+void dw_i2c_close(struct pci_device *dev);
 int dw_i2c_read(struct pci_device *dev, u8 chip, u8 addr, u8 *buf, u8 len);
 int dw_i2c_write(struct pci_device *dev, u8 chip, u8 addr, const u8 *buf, u8 len);
 

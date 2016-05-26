@@ -142,6 +142,9 @@ int dw_i2c_init(struct pci_device *pdev)
 	/* Set up some settings of I2C controller */
 	write32(base_ptr + I2C_CTRL, I2C_RESTART_EN | (I2C_STANDARD_MODE << 1) | I2C_MASTER_ENABLE);
 
+	/* no interrupts in BIOS */
+	write32(base_ptr + I2C_INTR_MASK, 0);
+
 	/* Adjust frequency for standard mode to 100 kHz */
 	/* The counter value can be computed by N=100MHz/2/I2C_CLK */
 	/* Thus, for 100 kHz I2C_CLK, N is 0x1F4 */
@@ -156,6 +159,14 @@ int dw_i2c_init(struct pci_device *pdev)
 
 	dprintf(2, "I2C: Controller @ %x enabled.\n", pdev->bdf);
 	return I2C_SUCCESS;
+}
+
+void dw_i2c_close(struct pci_device *dev)
+{
+	u8 *base_ptr;
+
+	if ((base_ptr = i2c_get_base(dev)) != NULL)
+		write32(base_ptr + I2C_ENABLE, 0);
 }
 
 /** \brief Read bytes over I2C-Bus from a slave. This function tries only one

@@ -30,13 +30,31 @@ u8 FloppyCount VARFSEG;
 u8 CDCount;
 struct drive_s *IDMap[3][BUILD_MAX_EXTDRIVE] VARFSEG;
 u8 *bounce_buf_fl VARFSEG;
+u8 swap_hd_id VARFSEG; // swap this index with 0
+
+void
+setSwapHdId(u8 idx)
+{
+   swap_hd_id = idx;
+   dprintf(3, "setSwapHdId: %d\n", idx);
+}
 
 struct drive_s *
 getDrive(u8 exttype, u8 extdriveoffset)
 {
-    if (extdriveoffset >= ARRAY_SIZE(IDMap[0]))
+    u8 edo = extdriveoffset;
+    u8 sid = GET_GLOBAL(swap_hd_id);
+
+    if ((exttype == EXTTYPE_HD) && (sid != 0)) {
+        if (sid == extdriveoffset)
+            edo = 0;
+        else if (extdriveoffset == 0)
+            edo = sid;
+        dprintf(DEBUG_HDL_13, "getDrive: HD %d => %d\n", extdriveoffset, edo);
+    }
+    if (edo >= ARRAY_SIZE(IDMap[0]))
         return NULL;
-    return GET_GLOBAL(IDMap[exttype][extdriveoffset]);
+    return GET_GLOBAL(IDMap[exttype][edo]);
 }
 
 int getDriveId(u8 exttype, struct drive_s *drive)
@@ -236,7 +254,7 @@ add_drive(struct drive_s **idmap, u8 *count, struct drive_s *drive)
 }
 
 // Map a hard drive
-void
+int
 map_hd_drive(struct drive_s *drive)
 {
     ASSERT32FLAT();
@@ -250,6 +268,7 @@ map_hd_drive(struct drive_s *drive)
 
     // Fill "fdpt" structure.
     fill_fdpt(drive, hdid);
+    return hdid;
 }
 
 // Map a cd

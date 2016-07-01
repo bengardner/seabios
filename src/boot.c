@@ -691,13 +691,11 @@ struct bev_s {
 };
 static struct bev_s BEV[20];
 static int BEVCount;
-static int HaveHDBoot, HaveFDBoot;
+static int HaveFDBoot;
 
 static void
 add_bev(int type, u32 vector)
 {
-    if (type == IPL_TYPE_HARDDISK && HaveHDBoot++)
-        return;
     if (type == IPL_TYPE_FLOPPY && HaveFDBoot++)
         return;
     if (BEVCount >= ARRAY_SIZE(BEV))
@@ -731,8 +729,7 @@ bcv_prepboot(void)
             add_bev(IPL_TYPE_FLOPPY, 0);
             break;
         case IPL_TYPE_HARDDISK:
-            map_hd_drive(pos->drive);
-            add_bev(IPL_TYPE_HARDDISK, 0);
+            add_bev(IPL_TYPE_HARDDISK, map_hd_drive(pos->drive));
             break;
         case IPL_TYPE_CDROM:
             map_cd_drive(pos->drive);
@@ -901,6 +898,7 @@ do_boot(int seq_nr)
         break;
     case IPL_TYPE_HARDDISK:
         printf("Booting from Hard Disk...\n");
+        setSwapHdId(ie->vector);
         boot_disk(0x80, 1);
         break;
     case IPL_TYPE_CDROM:

@@ -787,12 +787,12 @@ boot_disk(u8 bootdrv, int checksig)
         return;
     }
 
-    if (checksig) {
-        struct mbr_s *mbr = (void*)0;
-        if (GET_FARVAR(bootseg, mbr->signature) != MBR_SIGNATURE) {
-            printf("Boot failed: not a bootable disk\n\n");
-            return;
-        }
+    struct mbr_s *mbr = (void*)0;
+    uint32_t code = *(uint32_t *)&GET_FARVAR(bootseg, mbr->code);
+    if ((code == 0) || (code == 0xffffffff) ||
+        (checksig && (GET_FARVAR(bootseg, mbr->signature) != MBR_SIGNATURE))) {
+        printf("Boot failed: not a bootable disk\n\n");
+        return;
     }
 
     tpm_add_bcv(bootdrv, MAKE_FLATPTR(bootseg, 0), 512);

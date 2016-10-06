@@ -298,7 +298,7 @@ void print_bios_info(void)
 
      */
     struct pci_device *pcie_slot[4] = { NULL };
-    static const char *pcie_name[4] = { "Front Eth", NULL, "Expansion", "Back  Eth" };
+    static const char *pcie_name[4] = { "Back  Eth", NULL, "Expansion", "Front Eth" };
     static int         pcie_order[] = { 0, 3, 2 };
     struct pci_device *pci;
 

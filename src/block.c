@@ -12,6 +12,7 @@
 #include "hw/esp-scsi.h" // esp_scsi_process_op
 #include "hw/lsi-scsi.h" // lsi_scsi_process_op
 #include "hw/megasas.h" // megasas_process_op
+#include "hw/mpt-scsi.h" // mpt_scsi_process_op
 #include "hw/pci.h" // pci_bdf_to_bus
 #include "hw/pvscsi.h" // pvscsi_process_op
 #include "hw/rtc.h" // rtc_read
@@ -21,7 +22,7 @@
 #include "hw/virtio-scsi.h" // virtio_scsi_process_op
 #include "malloc.h" // malloc_low
 #include "output.h" // dprintf
-#include "stacks.h" // stack_hop
+#include "stacks.h" // call32
 #include "std/disk.h" // struct dpte_s
 #include "string.h" // checksum
 #include "util.h" // process_floppy_op
@@ -519,6 +520,7 @@ block_setup(void)
     esp_scsi_setup();
     megasas_setup();
     pvscsi_setup();
+    mpt_scsi_setup();
 }
 
 // Fallback handler for command requests not implemented by drivers
@@ -555,6 +557,8 @@ process_op_both(struct disk_op_s *op)
         return esp_scsi_process_op(op);
     case DTYPE_MEGASAS:
         return megasas_process_op(op);
+    case DTYPE_MPT_SCSI:
+        return mpt_scsi_process_op(op);
     default:
         if (!MODESEGMENT)
             return DISK_RET_EPARAM;
@@ -614,6 +618,10 @@ process_op_16(struct disk_op_s *op)
 int
 process_op(struct disk_op_s *op)
 {
+    dprintf(DEBUG_HDL_13, "disk_op d=%p lba=%d buf=%p count=%d cmd=%d\n"
+            , op->drive_gf, (u32)op->lba, op->buf_fl
+            , op->count, op->command);
+
     int ret, origcount = op->count;
     if (origcount * GET_GLOBALFLAT(op->drive_gf->blksize) > 64*1024) {
         op->count = 0;
@@ -627,36 +635,4 @@ process_op(struct disk_op_s *op)
         // If the count hasn't changed on error, assume no data transferred.
         op->count = 0;
     return ret;
-}
-
-// Execute a "disk_op_s" request - this runs on the extra stack.
-static int
-__send_disk_op(struct disk_op_s *op_far, u16 op_seg)
-{
-    struct disk_op_s dop;
-    memcpy_far(GET_SEG(SS), &dop
-               , op_seg, op_far
-               , sizeof(dop));
-
-    dprintf(DEBUG_HDL_13, "disk_op d=%p lba=%d buf=%p count=%d cmd=%d\n"
-            , dop.drive_gf, (u32)dop.lba, dop.buf_fl
-            , dop.count, dop.command);
-
-    int status = process_op(&dop);
-
-    // Update count with total sectors transferred.
-    SET_FARVAR(op_seg, op_far->count, dop.count);
-
-    return status;
-}
-
-// Execute a "disk_op_s" request by jumping to the extra 16bit stack.
-int
-send_disk_op(struct disk_op_s *op)
-{
-    ASSERT16();
-    if (! CONFIG_DRIVES)
-        return -1;
-
-    return stack_hop(__send_disk_op, op, GET_SEG(SS));
 }

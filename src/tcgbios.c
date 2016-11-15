@@ -24,6 +24,7 @@
 #include "tcgbios.h"// tpm_*, prototypes
 #include "util.h" // printf, get_keystroke
 #include "stacks.h" // wait_threads, reset
+#include "malloc.h" // malloc_high
 
 /****************************************************************
  * TPM 1.2 commands
@@ -33,7 +34,6 @@ static const u8 Startup_ST_CLEAR[] = { 0x00, TPM_ST_CLEAR };
 static const u8 Startup_ST_STATE[] = { 0x00, TPM_ST_STATE };
 
 static const u8 PhysicalPresence_CMD_ENABLE[]  = { 0x00, 0x20 };
-static const u8 PhysicalPresence_CMD_DISABLE[] = { 0x01, 0x00 };
 static const u8 PhysicalPresence_PRESENT[]     = { 0x00, 0x08 };
 static const u8 PhysicalPresence_NOT_PRESENT_LOCK[] = { 0x00, 0x14 };
 
@@ -76,6 +76,9 @@ struct {
 static int TPM_has_physical_presence;
 
 static TPMVersion TPM_version;
+
+static u32 tpm20_pcr_selection_size;
+static struct tpml_pcr_selection *tpm20_pcr_selection;
 
 static struct tcpa_descriptor_rev2 *
 find_tcpa_by_rsdp(struct rsdp_descriptor *rsdp)
@@ -134,15 +137,17 @@ tpm_tcpa_probe(void)
  * Extend the ACPI log with the given entry by copying the
  * entry data into the log.
  * Input
- *  pcpes : Pointer to the event 'header' to be copied into the log
- *  event : Pointer to the event 'body' to be copied into the log
+ *  entry : The header data to use (including the variable length digest)
+ *  digest_len : Length of the digest in 'entry'
+ *  event : Pointer to the event body to be copied into the log
+ *  event_len : Length of 'event'
  *
  * Output:
  *  Returns an error code in case of faiure, 0 in case of success
  */
 static int
-tpm_log_event(struct tcg_pcr_event2_sha1 *entry, const void *event
-              , TPMVersion tpm_version)
+tpm_log_event(struct tpm_log_header *entry, int digest_len
+              , const void *event, int event_len)
 {
     dprintf(DEBUG_tcg, "TCGBIOS: LASA = %p, next entry = %p\n",
             tpm_state.log_area_start_address, tpm_state.log_area_next_entry);
@@ -150,7 +155,8 @@ tpm_log_event(struct tcg_pcr_event2_sha1 *entry, const void *event
     if (tpm_state.log_area_next_entry == NULL)
         return -1;
 
-    u32 size = sizeof(*entry) + entry->eventdatasize;
+    u32 size = (sizeof(*entry) + digest_len
+                + sizeof(struct tpm_log_trailer) + event_len);
     u32 logsize = (tpm_state.log_area_next_entry + size
                    - tpm_state.log_area_start_address);
     if (logsize > tpm_state.log_area_minimum_length) {
@@ -158,63 +164,17 @@ tpm_log_event(struct tcg_pcr_event2_sha1 *entry, const void *event
         return -1;
     }
 
-    switch (tpm_version) {
-    case TPM_VERSION_1_2: ;
-        struct pcpes *pcpes = (void*)tpm_state.log_area_next_entry;
-        pcpes->pcrindex = entry->pcrindex;
-        pcpes->eventtype = entry->eventtype;
-        memcpy(pcpes->digest, entry->digests[0].sha1, sizeof(pcpes->digest));
-        pcpes->eventdatasize = entry->eventdatasize;
-        memcpy(pcpes->event, event, entry->eventdatasize);
-        size = sizeof(*pcpes) + entry->eventdatasize;
-        break;
-    case TPM_VERSION_2: ;
-        struct tcg_pcr_event2_sha1 *e = (void*)tpm_state.log_area_next_entry;
-        memcpy(e, entry, sizeof(*e));
-        memcpy(e->event, event, entry->eventdatasize);
-        break;
-    }
+    void *dest = tpm_state.log_area_next_entry;
+    memcpy(dest, entry, sizeof(*entry) + digest_len);
+    struct tpm_log_trailer *t = dest + sizeof(*entry) + digest_len;
+    t->eventdatasize = event_len;
+    memcpy(t->event, event, event_len);
 
     tpm_state.log_area_last_entry = tpm_state.log_area_next_entry;
     tpm_state.log_area_next_entry += size;
     tpm_state.entry_count++;
 
     return 0;
-}
-
-/*
- * Initialize the log; a TPM2 log needs a special TPM 1.2 log entry
- * as the first entry serving identification purposes
- */
-static void
-tpm_log_init(void)
-{
-    struct TCG_EfiSpecIdEventStruct event = {
-        .signature = "Spec ID Event03",
-        .platformClass = TPM_TCPA_ACPI_CLASS_CLIENT,
-        .specVersionMinor = 0,
-        .specVersionMajor = 2,
-        .specErrata = 0,
-        .uintnSize = 2,
-        .numberOfAlgorithms = 1,
-        .digestSizes[0] = {
-             .algorithmId = TPM2_ALG_SHA1,
-             .digestSize = SHA1_BUFSIZE,
-        },
-        .vendorInfoSize = 0,
-    };
-    struct tcg_pcr_event2_sha1 entry = {
-        .eventtype = EV_NO_ACTION,
-        .eventdatasize = sizeof(event),
-    };
-
-    switch (TPM_version) {
-    case TPM_VERSION_1_2:
-        break;
-    case TPM_VERSION_2:
-        /* write a 1.2 type of entry */
-        tpm_log_event(&entry, &event, TPM_VERSION_1_2);
-    }
 }
 
 
@@ -240,6 +200,189 @@ tpm_can_show_menu(void)
         return tpm_is_working();
     }
     return 0;
+}
+
+// A 'struct tpm_log_entry' is a local data structure containing a
+// 'tpm_log_header' followed by space for the maximum supported
+// digest.  (The digest is a sha1 hash on tpm1.2 or a series of
+// tpm2_digest_value structs on tpm2.0)
+struct tpm_log_entry {
+    struct tpm_log_header hdr;
+    u8 pad[sizeof(struct tpm2_digest_values)
+           + 5 * sizeof(struct tpm2_digest_value)
+           + SHA1_BUFSIZE + SHA256_BUFSIZE + SHA384_BUFSIZE
+           + SHA512_BUFSIZE + SM3_256_BUFSIZE];
+} PACKED;
+
+static int
+tpm20_get_hash_buffersize(u16 hashAlg)
+{
+    switch (hashAlg) {
+    case TPM2_ALG_SHA1:
+        return SHA1_BUFSIZE;
+    case TPM2_ALG_SHA256:
+        return SHA256_BUFSIZE;
+    case TPM2_ALG_SHA384:
+        return SHA384_BUFSIZE;
+    case TPM2_ALG_SHA512:
+        return SHA512_BUFSIZE;
+    case TPM2_ALG_SM3_256:
+        return SM3_256_BUFSIZE;
+    default:
+        return -1;
+    }
+}
+
+// Add an entry at the start of the log describing digest formats
+static int
+tpm20_write_EfiSpecIdEventStruct(void)
+{
+    if (!tpm20_pcr_selection)
+        return -1;
+
+    struct {
+        struct TCG_EfiSpecIdEventStruct hdr;
+        u8 pad[256];
+    } event = {
+        .hdr.signature = "Spec ID Event03",
+        .hdr.platformClass = TPM_TCPA_ACPI_CLASS_CLIENT,
+        .hdr.specVersionMinor = 0,
+        .hdr.specVersionMajor = 2,
+        .hdr.specErrata = 0,
+        .hdr.uintnSize = 2,
+    };
+
+    struct tpms_pcr_selection *sel = tpm20_pcr_selection->selections;
+    void *nsel, *end = (void*)tpm20_pcr_selection + tpm20_pcr_selection_size;
+
+    u32 count;
+    for (count = 0; count < be32_to_cpu(tpm20_pcr_selection->count); count++) {
+        u8 sizeOfSelect = sel->sizeOfSelect;
+
+        nsel = (void*)sel + sizeof(*sel) + sizeOfSelect;
+        if (nsel > end)
+            break;
+
+        int hsize = tpm20_get_hash_buffersize(be16_to_cpu(sel->hashAlg));
+        if (hsize < 0) {
+            dprintf(DEBUG_tcg, "TPM is using an unsupported hash: %d\n",
+                    be16_to_cpu(sel->hashAlg));
+            return -1;
+        }
+
+        int event_size = offsetof(struct TCG_EfiSpecIdEventStruct
+                                  , digestSizes[count+1]);
+        if (event_size > sizeof(event) - sizeof(u32)) {
+            dprintf(DEBUG_tcg, "EfiSpecIdEventStruct pad too small\n");
+            return -1;
+        }
+
+        event.hdr.digestSizes[count].algorithmId = be16_to_cpu(sel->hashAlg);
+        event.hdr.digestSizes[count].digestSize = hsize;
+
+        sel = nsel;
+    }
+
+    if (sel != end) {
+        dprintf(DEBUG_tcg, "Malformed pcr selection structure fron TPM\n");
+        return -1;
+    }
+
+    event.hdr.numberOfAlgorithms = count;
+    int event_size = offsetof(struct TCG_EfiSpecIdEventStruct
+                              , digestSizes[count]);
+    u32 *vendorInfoSize = (void*)&event + event_size;
+    *vendorInfoSize = 0;
+    event_size += sizeof(*vendorInfoSize);
+
+    struct tpm_log_entry le = {
+        .hdr.eventtype = EV_NO_ACTION,
+    };
+    return tpm_log_event(&le.hdr, SHA1_BUFSIZE, &event, event_size);
+}
+
+/*
+ * Build the TPM2 tpm2_digest_values data structure from the given hash.
+ * Follow the PCR bank configuration of the TPM and write the same hash
+ * in either truncated or zero-padded form in the areas of all the other
+ * hashes. For example, write the sha1 hash in the area of the sha256
+ * hash and fill the remaining bytes with zeros. Or truncate the sha256
+ * hash when writing it in the area of the sha1 hash.
+ *
+ * le: the log entry to build the digest in
+ * sha1: the sha1 hash value to use
+ *
+ * Returns the digest size; -1 on fatal error
+ */
+static int
+tpm20_build_digest(struct tpm_log_entry *le, const u8 *sha1)
+{
+    if (!tpm20_pcr_selection)
+        return -1;
+
+    struct tpms_pcr_selection *sel = tpm20_pcr_selection->selections;
+    void *nsel, *end = (void*)tpm20_pcr_selection + tpm20_pcr_selection_size;
+    void *dest = le->hdr.digest + sizeof(struct tpm2_digest_values);
+
+    u32 count;
+    for (count = 0; count < be32_to_cpu(tpm20_pcr_selection->count); count++) {
+        u8 sizeOfSelect = sel->sizeOfSelect;
+
+        nsel = (void*)sel + sizeof(*sel) + sizeOfSelect;
+        if (nsel > end)
+            break;
+
+        int hsize = tpm20_get_hash_buffersize(be16_to_cpu(sel->hashAlg));
+        if (hsize < 0) {
+            dprintf(DEBUG_tcg, "TPM is using an unsupported hash: %d\n",
+                    be16_to_cpu(sel->hashAlg));
+            return -1;
+        }
+
+        /* buffer size sanity check before writing */
+        struct tpm2_digest_value *v = dest;
+        if (dest + sizeof(*v) + hsize > (void*)le + sizeof(*le)) {
+            dprintf(DEBUG_tcg, "tpm_log_entry is too small\n");
+            return -1;
+        }
+
+        v->hashAlg = sel->hashAlg;
+        memset(v->hash, 0, hsize);
+        memcpy(v->hash, sha1, hsize > SHA1_BUFSIZE ? SHA1_BUFSIZE : hsize);
+
+        dest += sizeof(*v) + hsize;
+        sel = nsel;
+    }
+
+    if (sel != end) {
+        dprintf(DEBUG_tcg, "Malformed pcr selection structure fron TPM\n");
+        return -1;
+    }
+
+    struct tpm2_digest_values *v = (void*)le->hdr.digest;
+    v->count = cpu_to_be32(count);
+
+    return dest - (void*)le->hdr.digest;
+}
+
+static int
+tpm12_build_digest(struct tpm_log_entry *le, const u8 *sha1)
+{
+    // On TPM 1.2 the digest contains just the SHA1 hash
+    memcpy(le->hdr.digest, sha1, SHA1_BUFSIZE);
+    return SHA1_BUFSIZE;
+}
+
+static int
+tpm_build_digest(struct tpm_log_entry *le, const u8 *sha1)
+{
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        return tpm12_build_digest(le, sha1);
+    case TPM_VERSION_2:
+        return tpm20_build_digest(le, sha1);
+    }
+    return -1;
 }
 
 /*
@@ -367,6 +510,57 @@ tpm12_get_capability(u32 cap, u32 subcap, struct tpm_rsp_header *rsp, u32 rsize)
 }
 
 static int
+tpm20_getcapability(u32 capability, u32 property, u32 count,
+                    struct tpm_rsp_header *rsp, u32 rsize)
+{
+    struct tpm2_req_getcapability trg = {
+        .hdr.tag = cpu_to_be16(TPM2_ST_NO_SESSIONS),
+        .hdr.totlen = cpu_to_be32(sizeof(trg)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_GetCapability),
+        .capability = cpu_to_be32(capability),
+        .property = cpu_to_be32(property),
+        .propertycount = cpu_to_be32(count),
+    };
+
+    u32 resp_size = rsize;
+    int ret = tpmhw_transmit(0, &trg.hdr, rsp, &resp_size,
+                             TPM_DURATION_TYPE_SHORT);
+    ret = (ret ||
+           rsize < be32_to_cpu(rsp->totlen)) ? -1 : be32_to_cpu(rsp->errcode);
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_GetCapability = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+static int
+tpm20_get_pcrbanks(void)
+{
+    u8 buffer[128];
+    struct tpm2_res_getcapability *trg =
+      (struct tpm2_res_getcapability *)&buffer;
+
+    int ret = tpm20_getcapability(TPM2_CAP_PCRS, 0, 8, &trg->hdr,
+                                  sizeof(buffer));
+    if (ret)
+        return ret;
+
+    u32 size = be32_to_cpu(trg->hdr.totlen) -
+                           offsetof(struct tpm2_res_getcapability, data);
+    tpm20_pcr_selection = malloc_high(size);
+    if (tpm20_pcr_selection) {
+        memcpy(tpm20_pcr_selection, &trg->data, size);
+        tpm20_pcr_selection_size = size;
+    } else {
+        warn_noalloc();
+        ret = -1;
+    }
+
+    return ret;
+}
+
+static int
 tpm12_determine_timeouts(void)
 {
     struct tpm_res_getcap_timeouts timeouts;
@@ -423,15 +617,15 @@ tpm20_set_timeouts(void)
 }
 
 static int
-tpm12_extend(u32 pcrindex, const u8 *digest)
+tpm12_extend(struct tpm_log_entry *le, int digest_len)
 {
     struct tpm_req_extend tre = {
         .hdr.tag     = cpu_to_be16(TPM_TAG_RQU_CMD),
         .hdr.totlen  = cpu_to_be32(sizeof(tre)),
         .hdr.ordinal = cpu_to_be32(TPM_ORD_Extend),
-        .pcrindex    = cpu_to_be32(pcrindex),
+        .pcrindex    = cpu_to_be32(le->hdr.pcrindex),
     };
-    memcpy(tre.digest, digest, sizeof(tre.digest));
+    memcpy(tre.digest, le->hdr.digest, sizeof(tre.digest));
 
     struct tpm_rsp_extend rsp;
     u32 resp_length = sizeof(rsp);
@@ -443,30 +637,32 @@ tpm12_extend(u32 pcrindex, const u8 *digest)
     return 0;
 }
 
-static int tpm20_extend(u32 pcrindex, const u8 *digest)
+static int tpm20_extend(struct tpm_log_entry *le, int digest_len)
 {
-    struct tpm2_req_extend tre = {
+    struct tpm2_req_extend tmp_tre = {
         .hdr.tag     = cpu_to_be16(TPM2_ST_SESSIONS),
-        .hdr.totlen  = cpu_to_be32(sizeof(tre)),
+        .hdr.totlen  = cpu_to_be32(0),
         .hdr.ordinal = cpu_to_be32(TPM2_CC_PCR_Extend),
-        .pcrindex    = cpu_to_be32(pcrindex),
-        .authblocksize = cpu_to_be32(sizeof(tre.authblock)),
+        .pcrindex    = cpu_to_be32(le->hdr.pcrindex),
+        .authblocksize = cpu_to_be32(sizeof(tmp_tre.authblock)),
         .authblock = {
             .handle = cpu_to_be32(TPM2_RS_PW),
             .noncesize = cpu_to_be16(0),
             .contsession = TPM2_YES,
             .pwdsize = cpu_to_be16(0),
         },
-        .digest = {
-            .count = cpu_to_be32(1),
-            .hashalg = cpu_to_be16(TPM2_ALG_SHA1),
-        },
     };
-    memcpy(tre.digest.sha1, digest, sizeof(tre.digest.sha1));
+    u8 buffer[sizeof(tmp_tre) + sizeof(le->pad)];
+    struct tpm2_req_extend *tre = (struct tpm2_req_extend *)buffer;
+
+    memcpy(tre, &tmp_tre, sizeof(tmp_tre));
+    memcpy(&tre->digest[0], le->hdr.digest, digest_len);
+
+    tre->hdr.totlen = cpu_to_be32(sizeof(tmp_tre) + digest_len);
 
     struct tpm_rsp_header rsp;
     u32 resp_length = sizeof(rsp);
-    int ret = tpmhw_transmit(0, &tre.hdr, &rsp, &resp_length,
+    int ret = tpmhw_transmit(0, &tre->hdr, &rsp, &resp_length,
                              TPM_DURATION_TYPE_SHORT);
     if (ret || resp_length != sizeof(rsp) || rsp.errcode)
         return -1;
@@ -475,13 +671,13 @@ static int tpm20_extend(u32 pcrindex, const u8 *digest)
 }
 
 static int
-tpm_extend(u32 pcrindex, const u8 *digest)
+tpm_extend(struct tpm_log_entry *le, int digest_len)
 {
     switch (TPM_version) {
     case TPM_VERSION_1_2:
-        return tpm12_extend(pcrindex, digest);
+        return tpm12_extend(le, digest_len);
     case TPM_VERSION_2:
-        return tpm20_extend(pcrindex, digest);
+        return tpm20_extend(le, digest_len);
     }
     return -1;
 }
@@ -506,20 +702,22 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
     if (!tpm_is_working())
         return;
 
-    struct tcg_pcr_event2_sha1 entry = {
-        .pcrindex = pcrindex,
-        .eventtype = event_type,
-        .eventdatasize = event_length,
-        .count = 1,
-        .digests[0].hashtype  = TPM2_ALG_SHA1,
+    u8 hash[SHA1_BUFSIZE];
+    sha1(hashdata, hashdata_length, hash);
+
+    struct tpm_log_entry le = {
+        .hdr.pcrindex = pcrindex,
+        .hdr.eventtype = event_type,
     };
-    sha1(hashdata, hashdata_length, entry.digests[0].sha1);
-    int ret = tpm_extend(entry.pcrindex, entry.digests[0].sha1);
+    int digest_len = tpm_build_digest(&le, hash);
+    if (digest_len < 0)
+        return;
+    int ret = tpm_extend(&le, digest_len);
     if (ret) {
         tpm_set_failure();
         return;
     }
-    tpm_log_event(&entry, event, TPM_version);
+    tpm_log_event(&le.hdr, digest_len, event, event_length);
 }
 
 
@@ -702,6 +900,14 @@ tpm20_startup(void)
     if (ret)
         goto err_exit;
 
+    ret = tpm20_get_pcrbanks();
+    if (ret)
+        goto err_exit;
+
+    ret = tpm20_write_EfiSpecIdEventStruct();
+    if (ret)
+        goto err_exit;
+
     return 0;
 
 err_exit:
@@ -740,8 +946,6 @@ tpm_setup(void)
     int ret = tpm_tcpa_probe();
     if (ret)
         return;
-
-    tpm_log_init();
 
     TPM_working = 1;
 
@@ -1040,20 +1244,21 @@ hash_log_extend(struct pcpes *pcpes, const void *hashdata, u32 hashdata_length
         return TCG_INVALID_INPUT_PARA;
     if (hashdata)
         sha1(hashdata, hashdata_length, pcpes->digest);
+
+    struct tpm_log_entry le = {
+        .hdr.pcrindex = pcpes->pcrindex,
+        .hdr.eventtype = pcpes->eventtype,
+    };
+    int digest_len = tpm_build_digest(&le, pcpes->digest);
+    if (digest_len < 0)
+        return TCG_GENERAL_ERROR;
     if (extend) {
-        int ret = tpm_extend(pcpes->pcrindex, pcpes->digest);
+        int ret = tpm_extend(&le, digest_len);
         if (ret)
             return TCG_TCG_COMMAND_ERROR;
     }
-    struct tcg_pcr_event2_sha1 entry = {
-        .pcrindex = pcpes->pcrindex,
-        .eventtype = pcpes->eventtype,
-        .eventdatasize = pcpes->eventdatasize,
-        .count = 1,
-        .digests[0].hashtype = TPM2_ALG_SHA1,
-    };
-    memcpy(entry.digests[0].sha1, pcpes->digest, sizeof(entry.digests[0].sha1));
-    int ret = tpm_log_event(&entry, pcpes->event, TPM_version);
+    int ret = tpm_log_event(&le.hdr, digest_len
+                            , pcpes->event, pcpes->eventdatasize);
     if (ret)
         return TCG_PC_LOGOVERFLOW;
     return 0;

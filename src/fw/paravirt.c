@@ -131,6 +131,15 @@ qemu_preinit(void)
     dprintf(1, "RamSize: 0x%08x [cmos]\n", RamSize);
 }
 
+#define MSR_IA32_FEATURE_CONTROL 0x0000003a
+
+static void msr_feature_control_setup(void)
+{
+    u64 feature_control_bits = romfile_loadint("etc/msr_feature_control", 0);
+    if (feature_control_bits)
+        wrmsr_smp(MSR_IA32_FEATURE_CONTROL, feature_control_bits);
+}
+
 void
 qemu_platform_setup(void)
 {
@@ -149,13 +158,16 @@ qemu_platform_setup(void)
     smm_device_setup();
     smm_setup();
 
-    // Initialize mtrr and smp
+    // Initialize mtrr, msr_feature_control and smp
     mtrr_setup();
+    msr_feature_control_setup();
     smp_setup();
 
     // Create bios tables
-    pirtable_setup();
-    mptable_setup();
+    if (MaxCountCPUs <= 255) {
+        pirtable_setup();
+        mptable_setup();
+    }
     smbios_setup();
 
     if (CONFIG_FW_ROMFILE_LOAD) {
@@ -305,6 +317,44 @@ qemu_romfile_add(char *name, int select, int skip, int size)
     qfile->skip = skip;
     qfile->file.copy = qemu_cfg_read_file;
     romfile_add(&qfile->file);
+}
+
+static int
+qemu_romfile_get_fwcfg_entry(char *name, int *select)
+{
+    struct romfile_s *file = romfile_find(name);
+    if (!file)
+        return 0;
+    struct qemu_romfile_s *qfile;
+    qfile = container_of(file, struct qemu_romfile_s, file);
+    if (select)
+        *select = qfile->select;
+    return file->size;
+}
+
+static int boot_cpus_sel;
+static int boot_cpus_file_sz;
+
+u16
+qemu_init_present_cpus_count(void)
+{
+    u16 smp_count = romfile_loadint("etc/boot-cpus",
+                                    rtc_read(CMOS_BIOS_SMP_COUNT) + 1);
+    boot_cpus_file_sz =
+        qemu_romfile_get_fwcfg_entry("etc/boot-cpus", &boot_cpus_sel);
+    return smp_count;
+}
+
+u16
+qemu_get_present_cpus_count(void)
+{
+    u16 smp_count;
+    if (!boot_cpus_file_sz) {
+        smp_count = rtc_read(CMOS_BIOS_SMP_COUNT) + 1;
+    } else {
+        qemu_cfg_read_entry(&smp_count, boot_cpus_sel, boot_cpus_file_sz);
+    }
+    return smp_count;
 }
 
 struct e820_reservation {

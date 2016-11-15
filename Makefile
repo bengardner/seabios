@@ -34,7 +34,7 @@ SRCBOTH=misc.c stacks.c output.c string.c block.c cdrom.c disk.c mouse.c kbd.c \
     hw/usb.c hw/usb-uhci.c hw/usb-ohci.c hw/usb-ehci.c \
     hw/usb-hid.c hw/usb-msc.c hw/usb-uas.c \
     hw/blockcmd.c hw/floppy.c hw/ata.c hw/ramdisk.c \
-    hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c
+    hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c hw/mpt-scsi.c
 SRC16=$(SRCBOTH)
 SRC32FLAT=$(SRCBOTH) post.c e820map.c malloc.c romfile.c x86.c optionroms.c \
     pmm.c font.c boot.c bootsplash.c jpeg.c bmp.c tcgbios.c sha1.c \
@@ -64,6 +64,7 @@ COMMONCFLAGS := -I$(OUT) -Isrc -Os -MD -g \
     -freg-struct-return -ffreestanding -fno-delete-null-pointer-checks \
     -ffunction-sections -fdata-sections -fno-common -fno-merge-constants
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
+COMMONCFLAGS += $(call cc-option,$(CC),-fno-pie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fstack-check=no,)
@@ -208,7 +209,7 @@ $(OUT)bios.bin.elf: $(OUT)rom.o $(OUT)bios.bin.prep
 
 # VGA src files
 SRCVGA=src/output.c src/string.c src/hw/pci.c src/hw/serialio.c \
-    vgasrc/vgainit.c vgasrc/vgabios.c vgasrc/vgafb.c \
+    vgasrc/vgainit.c vgasrc/vgabios.c vgasrc/vgafb.c vgasrc/swcursor.c \
     vgasrc/vgafonts.c vgasrc/vbe.c \
     vgasrc/stdvga.c vgasrc/stdvgamodes.c vgasrc/stdvgaio.c \
     vgasrc/clext.c vgasrc/bochsvga.c vgasrc/geodevga.c \
@@ -282,4 +283,4 @@ clean:
 distclean: clean
 	$(Q)rm -f .config .config.old
 
--include $(patsubst %,$(OUT)%/*.d,$(DIRS))
+-include $(OUT)*.d $(patsubst %,$(OUT)%/*.d,$(DIRS))

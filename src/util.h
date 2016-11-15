@@ -154,6 +154,7 @@ void smm_setup(void);
 extern u32 MaxCountCPUs;
 void wrmsr_smp(u32 index, u64 val);
 void smp_setup(void);
+void smp_resume(void);
 int apic_id_is_present(u8 apic_id);
 
 // hw/dma.c
@@ -254,13 +255,12 @@ void tryReboot(void);
 void serial_setup(void);
 void lpt_setup(void);
 
+// version.c
+extern const char VERSION[], BUILDINFO[];
+
 // vgahooks.c
 void handle_155f(struct bregs *regs);
 void handle_157f(struct bregs *regs);
 void vgahook_setup(struct pci_device *pci);
-
-
-// version (auto generated file out/version.c)
-extern const char VERSION[], BUILDINFO[];
 
 #endif // util.h

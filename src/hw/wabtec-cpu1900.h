@@ -92,7 +92,19 @@
 #define CPU1900_REG_BIOS_BOOT_STAGE             (0x18)
 #define CPU1900_REG_BIOS_LAST_STAGE             (0x19)
 #define CPU1900_REG_BIOS_BOOT_SOURCE            (0x1a)
+#define  CPU1900_REG_BIOS_BOOT_SOURCE__IDX              0x0f
+#define  CPU1900_REG_BIOS_BOOT_SOURCE__TYPE             0x70
+#define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__NONE              0x00
+#define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__USB               0x10
+#define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__SATA              0x20
+#define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__MMC               0x30
+#define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__OTHER             0x40
 #define CPU1900_REG_BIOS_BOOT_COUNT             (0x1b)
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST_REBOOT        0x80   /* reboot before setting HAPPY */
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST_HAPPY         0x40   /* do not set happy */
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST_ALIVE         0x20   /* do not set alive */
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST_FAILED        0x10   /* copy of CPU1900_REG_BIOS_BOOT__FAILED */
+#define CPU1900_REG_BIOS_BOOT_COUNT__COUNT              0x0f
 #define CPU1900_REG_BIOS_SELECT                 (0x1c)
 #define  CPU1900_REG_BIOS_SELECT__BUSY                  0x08
 #define  CPU1900_REG_BIOS_SELECT__TOGGLE                0x04
@@ -102,6 +114,11 @@
 #define  CPU1900_REG_I2C_INFO__PRESENT                  0x80
 #define  CPU1900_REG_I2C_INFO__REVISION                 0x7f
 #define   CPU1900_REG_I2C_INFO__REVISION__PCA9539               0x01
+#define CPU1900_REG_MISC                        (0x1e)
+#define  CPU1900_REG_MISC__NOT_ALIVE_COUNT              0xc0
+#define  CPU1900_REG_MISC__NOT_HAPPY_COUNT              0x38
+#define  CPU1900_REG_MISC__SLEEP_LEVEL                  0x02
+#define  CPU1900_REG_MISC__SLEEP_DISABLE                0x01
 
 #define CPU1900_REG_ADC_BASE                    (0x20)
 

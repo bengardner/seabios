@@ -561,10 +561,26 @@ bootmenu_select(int choice)
 //    bootmenu_select(choice);
 //}
 
+static void cpu1900_bios_happy(void)
+{
+   /* TEST: Skip setting the Happy bit */
+   u8 bct = fpga_read_u8(CPU1900_REG_BIOS_BOOT_COUNT);
+
+   if ((bct & CPU1900_REG_BIOS_BOOT_COUNT__TEST_HAPPY) != 0) {
+      dprintf(1, "CPU1900: TEST Happy\n");
+   } else {
+      dprintf(1, "CPU1900: Set BIOS Happy bit\n");
+      fpga_write_u8(CPU1900_REG_BIOS_BOOT,
+                    fpga_read_u8(CPU1900_REG_BIOS_BOOT) | CPU1900_REG_BIOS_BOOT__HAPPY);
+   }
+}
+
 // Show IPL option menu.
 void
 interactive_bootmenu(void)
 {
+    cpu1900_bios_happy();
+
     // XXX - show available drives?
 
     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))

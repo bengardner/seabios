@@ -528,6 +528,36 @@ get_keystroke(int msec)
 #define DEFAULT_BOOTMENU_WAIT 2500
 
 /**
+ * Convert the bootentry_s.description to a boot source type and set
+ * BIOS_BOOT_SOURCE.
+ * The BootList has already been sorted such that the selected item is first.
+ */
+static void
+bootmenu_update_type(int boot_idx)
+{
+    struct bootentry_s *pos;
+    int val = CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__NONE;
+
+    hlist_for_each_entry(pos, &BootList, node) {
+        if (memcmp(pos->description, "USB ", 4) == 0) {
+            val = CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__USB;
+        } else if (memcmp(pos->description, "AHCI", 4) == 0) {
+            val = CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__SATA;
+        } else if (memcmp(pos->description, "MMC ", 4) == 0) {
+            val = CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__MMC;
+        } else {
+            val = CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__OTHER;
+        }
+        break;
+    }
+    if (boot_idx < 1)
+        boot_idx = 1;
+    if (boot_idx > CPU1900_REG_BIOS_BOOT_SOURCE__IDX)
+        boot_idx = CPU1900_REG_BIOS_BOOT_SOURCE__IDX;
+    fpga_write_u8(CPU1900_REG_BIOS_BOOT_SOURCE, val | boot_idx);
+}
+
+/**
  * Select a bootmenu item.
  *
  * @param choice menu selection, starting at 1
@@ -551,6 +581,7 @@ bootmenu_select(int choice)
             hlist_add_head(&pos->node, &BootList);
         }
     }
+    bootmenu_update_type(choice);
 }
 
 //static void
@@ -560,6 +591,78 @@ bootmenu_select(int choice)
 //    bs_printf("CPU1900: scratch=0x%02x\n", choice);
 //    bootmenu_select(choice);
 //}
+
+/**
+ * This handles the auto-select or recovery boot menu selection.
+ *
+ * The fully-populated boot menu will be something like:
+ *   Bootmenu:
+ *     1. USB MSC Drive Verbatim STORE N GO 5.00
+ *     2. AHCI/0: Delkin Devices BE08TGPZZ-XN000-D ATA-8 Hard-Disk (7
+ *     3. MMC drive P1XXXX 3688MiB
+ *     4. Payload [memtest]
+ *     5. Ramdisk [iPXE]
+ *     6. Payload [coreinfo]
+ *
+ *   Bootmenu:
+ *     1. USB MSC Drive CENTON  8.00
+ *     2. USB MSC Drive Verbatim STORE N GO 5.00
+ *     3. AHCI/0: Delkin Devices BE08TGPZZ-XN000-D ATA-8 Hard-Disk (7
+ *     4. MMC drive P1XXXX 3688MiB
+ *     5. Payload [recovery]
+ *     6. Payload [memtest]
+ *     7. Ramdisk [iPXE]
+ *     8. Payload [coreinfo]
+ *
+ * We have 8 bits of NV storage to use.
+ *
+ * If the Reset Cause is not SW or WD, then boot the default entry.
+ * If CPU1900_REG_BIOS_LAST_STAGE >= 0x20, then boot the default entry.
+ * We need 2 WD reboots or 4 SW reboots in a row to attempt recovery. (?)
+ *
+ *
+ */
+static void
+bootmenu_autoselect(void)
+{
+    u8 last_reset = fpga_read_u8(CPU1900_REG_RESET_CAUSE) & CPU1900_REG_RESET_CAUSE__M;
+    u8 last_stage = fpga_read_u8(CPU1900_REG_BIOS_LAST_STAGE);
+    u8 last_boots = fpga_read_u8(CPU1900_REG_BIOS_BOOT_SOURCE);
+    u8 last_menu  = last_boots & 0x0f;
+    u8 reset_cnt  = fpga_read_u8(CPU1900_REG_BIOS_BOOT_COUNT) & CPU1900_REG_BIOS_BOOT_COUNT__COUNT;
+
+    bs_printf("RECOVERY: cause=0x%02x stage=0x%02x boots=0x%02x\n",
+              last_reset, last_stage, last_boots);
+
+    /* FIXME:
+     * We really should have the app set LAST_STAGE to a greater value.
+     * FT currently does not do that, so the final value is 0x20 (OS Driver)
+     * Factory Test will need to be fixed first.
+     * This check should be (last_stage >= CPU1900_BOOT_STAGE_APP_HAPPY).
+     */
+    if (last_stage >= CPU1900_BOOT_STAGE_OS_DRIVER) {
+        bs_printf("RECOVERY: CLEAR stage 0x%02x > 0x%02x\n", last_stage, CPU1900_BOOT_STAGE_OS_DRIVER);
+
+        /* Successful boot, clear recovery state */
+        last_menu = 1;
+    }
+    else if ((last_reset != CPU1900_REG_RESET_CAUSE__M__SW_RESET) &&
+             (last_reset != CPU1900_REG_RESET_CAUSE__M__WD)) {
+        bs_printf("RECOVERY: CLEAR not SW or WD\n");
+
+        /* Not a recoverable reset reason */
+        last_menu = 1;
+    }
+    else if (reset_cnt < 3) {
+        bs_printf("RECOVERY: WAIT reset_cnt=%d\n", reset_cnt);
+    }
+    else {
+        last_menu++;
+        bs_printf("RECOVERY: FAIL, booting %d\n", last_menu);
+    }
+
+    bootmenu_select(last_menu);
+}
 
 static void cpu1900_bios_happy(void)
 {
@@ -579,18 +682,27 @@ static void cpu1900_bios_happy(void)
 void
 interactive_bootmenu(void)
 {
+    u8 boot_idx = 0;
+
     cpu1900_bios_happy();
 
     // XXX - show available drives?
 
-    if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
+    if (!CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1)) {
+        bootmenu_autoselect();
         return;
+    }
 
+    /* Only show the boot menu if the Watchdog Disable jumper is set */
     if ((fpga_read_u8(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) != CPU1900_REG_DBG_VAL) {
         print_bios_info();
         dprintf(1, "\n");
+        bootmenu_autoselect();
         return;
     }
+
+    // FIXME: remove this - for testing only!
+    bootmenu_autoselect();
 
     fpga_write_u8(CPU1900_REG_BIOS_BOOT_STAGE, CPU1900_BOOT_STAGE_SB_SPLASH);
 
@@ -693,9 +805,10 @@ interactive_bootmenu(void)
 
     // Find entry and make top priority.
     if (scan_code >= 1 && scan_code <= maxmenu + 1)
-        bootmenu_select(scan_code - 1);
+        boot_idx = scan_code - 1;
 
 bootsplash_off:
+    bootmenu_select(boot_idx);
     fpga_write_u8(CPU1900_REG_BIOS_BOOT_STAGE, CPU1900_BOOT_STAGE_SB_SPLASH_OFF);
     disable_bootsplash();
 }

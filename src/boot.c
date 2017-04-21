@@ -629,7 +629,9 @@ bootmenu_autoselect(void)
     u8 last_stage = fpga_read_u8(CPU1900_REG_BIOS_LAST_STAGE);
     u8 last_boots = fpga_read_u8(CPU1900_REG_BIOS_BOOT_SOURCE);
     u8 last_menu  = last_boots & 0x0f;
-    u8 reset_cnt  = fpga_read_u8(CPU1900_REG_BIOS_BOOT_COUNT) & CPU1900_REG_BIOS_BOOT_COUNT__COUNT;
+    u8 bbc        = fpga_read_u8(CPU1900_REG_BIOS_BOOT_COUNT);
+    u8 reset_cnt  = bbc & CPU1900_REG_BIOS_BOOT_COUNT__COUNT;
+    u8 clear_cnt  = 0;
 
     bs_printf("RECOVERY: cause=0x%02x stage=0x%02x boots=0x%02x\n",
               last_reset, last_stage, last_boots);
@@ -640,11 +642,16 @@ bootmenu_autoselect(void)
      * Factory Test will need to be fixed first.
      * This check should be (last_stage >= CPU1900_BOOT_STAGE_APP_HAPPY).
      */
-    if (last_stage >= CPU1900_BOOT_STAGE_OS_DRIVER) {
-        bs_printf("RECOVERY: CLEAR stage 0x%02x > 0x%02x\n", last_stage, CPU1900_BOOT_STAGE_OS_DRIVER);
-
-        /* Successful boot, clear recovery state */
+    if (last_stage < CPU1900_BOOT_STAGE_SB_PAYLOAD) {
+        /* we didn't attempt to boot a payload, so there cannot be an issue with the payload */
+        bs_printf("RECOVERY: SKIP stage 0x%02x < 0x%02x\n", last_stage, CPU1900_BOOT_STAGE_SB_PAYLOAD);
         last_menu = 1;
+        clear_cnt = 1;
+    }
+    else if (last_stage >= CPU1900_BOOT_STAGE_OS_DRIVER) {
+        bs_printf("RECOVERY: CLEAR stage 0x%02x >= 0x%02x\n", last_stage, CPU1900_BOOT_STAGE_OS_DRIVER);
+        last_menu = 1;
+        clear_cnt = 1;
     }
     else if ((last_reset != CPU1900_REG_RESET_CAUSE__M__SW_RESET) &&
              (last_reset != CPU1900_REG_RESET_CAUSE__M__WD)) {
@@ -652,6 +659,7 @@ bootmenu_autoselect(void)
 
         /* Not a recoverable reset reason */
         last_menu = 1;
+        clear_cnt = 1;
     }
     else if (reset_cnt < 3) {
         bs_printf("RECOVERY: WAIT reset_cnt=%d\n", reset_cnt);
@@ -659,6 +667,14 @@ bootmenu_autoselect(void)
     else {
         last_menu++;
         bs_printf("RECOVERY: FAIL, booting %d\n", last_menu);
+    }
+
+    /* Clear the boot count
+     * This will look odd in the coreboot romstage log, but whatever.
+     */
+    if (clear_cnt) {
+       fpga_write_u8(CPU1900_REG_BIOS_BOOT_COUNT,
+                     bbc & ~CPU1900_REG_BIOS_BOOT_COUNT__COUNT);
     }
 
     bootmenu_select(last_menu);

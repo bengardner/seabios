@@ -633,8 +633,8 @@ bootmenu_autoselect(void)
     u8 reset_cnt  = bbc & CPU1900_REG_BIOS_BOOT_COUNT__COUNT;
     u8 clear_cnt  = 0;
 
-    bs_printf("RECOVERY: cause=0x%02x stage=0x%02x boots=0x%02x\n",
-              last_reset, last_stage, last_boots);
+    bs_printf("RECOVERY: cause=0x%02x stage=0x%02x boots=0x%02x cnt=%d\n",
+              last_reset, last_stage, last_boots, reset_cnt);
 
     /* FIXME:
      * We really should have the app set LAST_STAGE to a greater value.

@@ -100,10 +100,14 @@
 #define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__MMC               0x30
 #define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__OTHER             0x40
 #define CPU1900_REG_BIOS_BOOT_COUNT             (0x1b)
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST_REBOOT        0x80   /* reboot before setting HAPPY */
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST_HAPPY         0x40   /* do not set happy */
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST_ALIVE         0x20   /* do not set alive */
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST_FAILED        0x10   /* copy of CPU1900_REG_BIOS_BOOT__FAILED */
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST               0x70
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__ALIVE_REBOOT         0x10   /* do not set Alive, reboot */
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__ALIVE_HANG           0x20   /* do not set Alive, hang */
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__HAPPY_REBOOT         0x30   /* do not set Happy, reboot */
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__HAPPY_HANG           0x40   /* do not set Happy, hang */
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__HASH_FAIL            0x50   /* hash check fail */
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__RES_OVERFLOW         0x60   /* test ended due to count overflow */
+#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__RES_FAILOVER         0x70   /* test ended due to failover */
 #define CPU1900_REG_BIOS_BOOT_COUNT__COUNT              0x0f
 #define CPU1900_REG_BIOS_SELECT                 (0x1c)
 #define  CPU1900_REG_BIOS_SELECT__BUSY                  0x08

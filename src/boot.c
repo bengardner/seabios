@@ -720,7 +720,7 @@ interactive_bootmenu(void)
     int maxmenu = 0;
     bs_printf("\nBootmenu:\n");
     hlist_for_each_entry(pos, &BootList, node) {
-        char desc[60];
+        char desc[75];
         maxmenu++;
         bs_printf("  %d. %s\n", maxmenu, strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
     }
@@ -774,7 +774,7 @@ interactive_bootmenu(void)
     // Show menu items
     maxmenu = 0;
     hlist_for_each_entry(pos, &BootList, node) {
-        char desc[60];
+        char desc[75];
         maxmenu++;
         bs_printf("%d. %s\n", maxmenu, strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
     }

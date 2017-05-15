@@ -536,25 +536,24 @@ static void
 bootmenu_update_type(int boot_idx)
 {
     struct bootentry_s *pos;
-    int val = CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__NONE;
+    int val = CPU1900_REG_SB_BOOT_SRC__M__NONE;
 
     hlist_for_each_entry(pos, &BootList, node) {
         if (memcmp(pos->description, "USB ", 4) == 0) {
-            val = CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__USB;
+            val = CPU1900_REG_SB_BOOT_SRC__M__USB;
         } else if (memcmp(pos->description, "AHCI", 4) == 0) {
-            val = CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__SATA;
+            val = CPU1900_REG_SB_BOOT_SRC__M__SATA;
         } else if (memcmp(pos->description, "MMC ", 4) == 0) {
-            val = CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__MMC;
+            val = CPU1900_REG_SB_BOOT_SRC__M__MMC;
         } else {
-            val = CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__OTHER;
+            val = CPU1900_REG_SB_BOOT_SRC__M__OTHER;
         }
         break;
     }
     if (boot_idx < 1)
         boot_idx = 1;
-    if (boot_idx > CPU1900_REG_BIOS_BOOT_SOURCE__IDX)
-        boot_idx = CPU1900_REG_BIOS_BOOT_SOURCE__IDX;
-    fpga_write_u8(CPU1900_REG_BIOS_BOOT_SOURCE, val | boot_idx);
+    fpga_write_u8(CPU1900_REG_SB_MENU_IDX, boot_idx);
+    fpga_write_u8(CPU1900_REG_SB_BOOT_SRC, val);
 }
 
 /**
@@ -619,22 +618,20 @@ bootmenu_select(int choice)
  * If the Reset Cause is not SW or WD, then boot the default entry.
  * If CPU1900_REG_BIOS_LAST_STAGE >= 0x20, then boot the default entry.
  * We need 2 WD reboots or 4 SW reboots in a row to attempt recovery. (?)
- *
- *
  */
 static void
 bootmenu_autoselect(void)
 {
     u8 last_reset = fpga_read_u8(CPU1900_REG_RESET_CAUSE) & CPU1900_REG_RESET_CAUSE__M;
     u8 last_stage = fpga_read_u8(CPU1900_REG_BIOS_LAST_STAGE);
-    u8 last_boots = fpga_read_u8(CPU1900_REG_BIOS_BOOT_SOURCE);
-    u8 last_menu  = last_boots & 0x0f;
-    u8 bbc        = fpga_read_u8(CPU1900_REG_BIOS_BOOT_COUNT);
-    u8 reset_cnt  = bbc & CPU1900_REG_BIOS_BOOT_COUNT__COUNT;
+    u8 last_boots = fpga_read_u8(CPU1900_REG_SB_BOOT_SRC);
+    u8 last_menu  = fpga_read_u8(CPU1900_REG_SB_MENU_IDX);
+    u8 boot_cnt   = fpga_read_u8(CPU1900_REG_SB_BOOT_COUNT);
     u8 clear_cnt  = 0;
+    u8 bios_sel   = fpga_read_u8(CPU1900_REG_BIOS_SELECT);
 
-    bs_printf("RECOVERY: cause=0x%02x stage=0x%02x boots=0x%02x cnt=%d\n",
-              last_reset, last_stage, last_boots, reset_cnt);
+    bs_printf("RECOVERY: cause=0x%02x stage=0x%02x last_src=0x%02x cnt=%d sel=0x%02x\n",
+              last_reset, last_stage, last_boots, boot_cnt, bios_sel);
 
     /* FIXME:
      * We really should have the app set LAST_STAGE to a greater value.
@@ -643,38 +640,38 @@ bootmenu_autoselect(void)
      * This check should be (last_stage >= CPU1900_BOOT_STAGE_APP_HAPPY).
      */
     if (last_stage < CPU1900_BOOT_STAGE_SB_PAYLOAD) {
-        /* we didn't attempt to boot a payload, so there cannot be an issue with the payload */
+        /* We didn't attempt to boot a payload on the last boot, so there
+         * cannot be an issue with the payload.
+         */
         bs_printf("RECOVERY: SKIP stage 0x%02x < 0x%02x\n", last_stage, CPU1900_BOOT_STAGE_SB_PAYLOAD);
         last_menu = 1;
         clear_cnt = 1;
     }
     else if (last_stage >= CPU1900_BOOT_STAGE_OS_DRIVER) {
+        /* We assume everything is good if the FPGA driver started up */
         bs_printf("RECOVERY: CLEAR stage 0x%02x >= 0x%02x\n", last_stage, CPU1900_BOOT_STAGE_OS_DRIVER);
         last_menu = 1;
         clear_cnt = 1;
     }
     else if ((last_reset != CPU1900_REG_RESET_CAUSE__M__SW_RESET) &&
              (last_reset != CPU1900_REG_RESET_CAUSE__M__WD)) {
+        /* Not a recoverable reset reason */
         bs_printf("RECOVERY: CLEAR not SW or WD\n");
 
-        /* Not a recoverable reset reason */
         last_menu = 1;
         clear_cnt = 1;
     }
-    else if (reset_cnt < 3) {
-        bs_printf("RECOVERY: WAIT reset_cnt=%d\n", reset_cnt);
+    else if (boot_cnt < 3) {
+        bs_printf("RECOVERY: WAIT boot_cnt=%d\n", boot_cnt);
     }
     else {
         last_menu++;
         bs_printf("RECOVERY: FAIL, booting %d\n", last_menu);
     }
 
-    /* Clear the boot count
-     * This will look odd in the coreboot romstage log, but whatever.
-     */
+    /* Clear the boot count */
     if (clear_cnt) {
-       fpga_write_u8(CPU1900_REG_BIOS_BOOT_COUNT,
-                     bbc & ~CPU1900_REG_BIOS_BOOT_COUNT__COUNT);
+       fpga_write_u8(CPU1900_REG_SB_BOOT_COUNT, 0);
     }
 
     bootmenu_select(last_menu);
@@ -682,9 +679,10 @@ bootmenu_autoselect(void)
 
 static void cpu1900_bios_happy(void)
 {
-   dprintf(1, "CPU1900: Set BIOS Happy bit\n");
-   fpga_write_u8(CPU1900_REG_BIOS_BOOT,
-                 fpga_read_u8(CPU1900_REG_BIOS_BOOT) | CPU1900_REG_BIOS_BOOT__HAPPY);
+    dprintf(1, "CPU1900: Set BIOS Happy, Sel:%02x\n",
+            fpga_read_u8(CPU1900_REG_BIOS_SELECT));
+    fpga_write_u8(CPU1900_REG_BIOS_BOOT,
+                  fpga_read_u8(CPU1900_REG_BIOS_BOOT) | CPU1900_REG_BIOS_BOOT__HAPPY);
 }
 
 // Show IPL option menu.

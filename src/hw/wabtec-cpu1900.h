@@ -21,6 +21,12 @@
 #define CPU1900_FPGA_REG_BASE                   0x1100
 #define CPU1900_FPGA_REG_SIZE                   0x0200
 
+/* there are 256 bytes of SRAM starting at 0x100.
+ * These are zeroed at power cycle and otherwise maintained.
+ */
+#define CPU1900_SRAM_BASE                       0x100
+#define CPU1900_SRAM_SIZE                       0x100
+
 /* register offset from the BAR */
 #define CPU1900_REG_FPGA_MAJOR_REV              (0x00)
 #define CPU1900_REG_FPGA_MINOR_REV              (0x01)
@@ -91,24 +97,8 @@
 #define  CPU1900_REG_BIOS_BOOT__BOOT                    0x01
 #define CPU1900_REG_BIOS_BOOT_STAGE             (0x18)
 #define CPU1900_REG_BIOS_LAST_STAGE             (0x19)
-#define CPU1900_REG_BIOS_BOOT_SOURCE            (0x1a)
-#define  CPU1900_REG_BIOS_BOOT_SOURCE__IDX              0x0f
-#define  CPU1900_REG_BIOS_BOOT_SOURCE__TYPE             0x70
-#define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__NONE              0x00
-#define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__USB               0x10
-#define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__SATA              0x20
-#define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__MMC               0x30
-#define   CPU1900_REG_BIOS_BOOT_SOURCE__TYPE__OTHER             0x40
-#define CPU1900_REG_BIOS_BOOT_COUNT             (0x1b)
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST               0x70
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__ALIVE_REBOOT         0x10   /* do not set Alive, reboot */
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__ALIVE_HANG           0x20   /* do not set Alive, hang */
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__HAPPY_REBOOT         0x30   /* do not set Happy, reboot */
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__HAPPY_HANG           0x40   /* do not set Happy, hang */
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__HASH_FAIL            0x50   /* hash check fail */
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__RES_OVERFLOW         0x60   /* test ended due to count overflow */
-#define CPU1900_REG_BIOS_BOOT_COUNT__TEST__RES_FAILOVER         0x70   /* test ended due to failover */
-#define CPU1900_REG_BIOS_BOOT_COUNT__COUNT              0x0f
+#define CPU1900_REG_BOOTLOG3                    (0x1a)
+#define CPU1900_REG_BOOTLOG4                    (0x1b)
 #define CPU1900_REG_BIOS_SELECT                 (0x1c)
 #define  CPU1900_REG_BIOS_SELECT__BUSY                  0x08
 #define  CPU1900_REG_BIOS_SELECT__TOGGLE                0x04
@@ -164,6 +154,38 @@
 #define  CPU1900_REG_W1_STATUS__LEVEL                   0x02
 #define  CPU1900_REG_W1_STATUS__RESULT                  0x01
 #define CPU1900_REG_W1_DATA                     (0x82)
+
+/* the logsev is read from BIOS flash on cold boot and written here */
+#define CPU1900_REG_CB_LOGLVL                   (0x100)
+#define CPU1900_REG_CB_BOOT_COUNT               (0x101) // incremented on every boot, zero on cold boot
+#define CPU1900_REG_CB_TEST_COUNT               (0x102) // number of times the test was performed
+#define CPU1900_REG_CB_TEST                     (0x103)
+#define  CPU1900_REG_CB_TEST__M                         0xff
+#define   CPU1900_REG_CB_TEST__M__NONE                          0x00
+#define   CPU1900_REG_CB_TEST__M__ALIVE_REBOOT                  0x01   /* do not set Alive, reboot */
+#define   CPU1900_REG_CB_TEST__M__ALIVE_HANG                    0x02   /* do not set Alive, hang */
+#define   CPU1900_REG_CB_TEST__M__HAPPY_REBOOT                  0x03   /* do not set Happy, reboot */
+#define   CPU1900_REG_CB_TEST__M__HAPPY_HANG                    0x04   /* do not set Happy, hang */
+#define   CPU1900_REG_CB_TEST__M__HASH_FAIL                     0x05   /* hash check fail */
+#define CPU1900_REG_CB_RES                      (0x104)
+#define  CPU1900_REG_CB_RES__M                          0xff
+#define   CPU1900_REG_CB_RES__M__NONE                           0x00
+#define   CPU1900_REG_CB_RES__M__COUNT                          0x01   /* test ended due to count zero */
+#define   CPU1900_REG_CB_RES__M__FAILOVER                       0x02   /* test ended due to failover */
+#define   CPU1900_REG_CB_RES__M__INVALID                        0x03   /* test ended due to a bad test value */
+
+/* the default logsev is used on cold boot */
+#define CPU1900_REG_SB_LOGLVL                   (0x110) // level if the WD jumper is NOT set
+#define CPU1900_REG_SB_MENU_LEN                 (0x111) // number of items on the menu (is this the same menu as last time?)
+#define CPU1900_REG_SB_MENU_IDX                 (0x112) // menu item selected for this boot
+#define CPU1900_REG_SB_BOOT_COUNT               (0x113) // number of times this menu item was booted
+#define CPU1900_REG_SB_BOOT_SRC                 (0x114) // boot type (USB, SATA, eMMC, payload)
+#define  CPU1900_REG_SB_BOOT_SRC__M                     0x0f
+#define   CPU1900_REG_SB_BOOT_SRC__M__NONE                      0x00
+#define   CPU1900_REG_SB_BOOT_SRC__M__USB                       0x01
+#define   CPU1900_REG_SB_BOOT_SRC__M__SATA                      0x02
+#define   CPU1900_REG_SB_BOOT_SRC__M__MMC                       0x03
+#define   CPU1900_REG_SB_BOOT_SRC__M__OTHER                     0x04
 
 enum cpu1900_boot_stage {
 	CPU1900_BOOT_STAGE_COLDBOOT      = 0x00, // only on power cycle

@@ -40,10 +40,12 @@ static int debug_loglevel;
 int debug_level_enabled(int msg_level)
 {
     if (debug_loglevel == 0) {
-        if ((fpga_read_u8(CPU1900_REG_DBG) & CPU1900_REG_DBG_MSK) == CPU1900_REG_DBG_VAL)
-            debug_loglevel = (CONFIG_DEBUG_LEVEL_DEBUG == 0) ? -1 : CONFIG_DEBUG_LEVEL_DEBUG;
-        else
+        debug_loglevel = fpga_read_u8(CPU1900_REG_SB_LOGLVL);
+        if ((debug_loglevel == 0) || (debug_loglevel > 32) ||
+            (fpga_read_u8(CPU1900_REG_RESET_CAUSE) == 0)) {
             debug_loglevel = (CONFIG_DEBUG_LEVEL == 0) ? -1 : CONFIG_DEBUG_LEVEL;
+            fpga_write_u8(CPU1900_REG_SB_LOGLVL, debug_loglevel);
+        }
     }
     return msg_level && (debug_loglevel >= msg_level);
 }

@@ -629,6 +629,14 @@ bootmenu_autoselect(void)
     u8 boot_cnt   = fpga_read_u8(CPU1900_REG_SB_BOOT_COUNT);
     u8 clear_cnt  = 0;
     u8 bios_sel   = fpga_read_u8(CPU1900_REG_BIOS_SELECT);
+    u8 tst        = fpga_read_u8(CPU1900_REG_CB_TEST);
+    u8 failed     = 0;
+
+    /* If test mode is active, fake the last stage so it looks like the boot failed */
+    if (tst == CPU1900_REG_CB_TEST__M__BOOT_FAIL) {
+        bs_printf("RECOVERY: TEST MODE!\n");
+        last_stage = CPU1900_BOOT_STAGE_SB_PAYLOAD;
+    }
 
     bs_printf("RECOVERY: cause=0x%02x stage=0x%02x last_src=0x%02x cnt=%d sel=0x%02x\n",
               last_reset, last_stage, last_boots, boot_cnt, bios_sel);
@@ -639,6 +647,7 @@ bootmenu_autoselect(void)
      * Factory Test will need to be fixed first.
      * This check should be (last_stage >= CPU1900_BOOT_STAGE_APP_HAPPY).
      */
+
     if (last_stage < CPU1900_BOOT_STAGE_SB_PAYLOAD) {
         /* We didn't attempt to boot a payload on the last boot, so there
          * cannot be an issue with the payload.
@@ -663,15 +672,23 @@ bootmenu_autoselect(void)
     }
     else if (boot_cnt < 3) {
         bs_printf("RECOVERY: WAIT boot_cnt=%d\n", boot_cnt);
+        fpga_write_u8(CPU1900_REG_SB_BOOT_COUNT, boot_cnt + 1);
     }
     else {
         last_menu++;
         bs_printf("RECOVERY: FAIL, booting %d\n", last_menu);
+        failed = 1;
+        clear_cnt = 1;
     }
 
     /* Clear the boot count */
     if (clear_cnt) {
        fpga_write_u8(CPU1900_REG_SB_BOOT_COUNT, 0);
+    }
+    else if (!failed) {
+        if (tst == CPU1900_REG_CB_TEST__M__BOOT_FAIL) {
+            tryReboot();
+        }
     }
 
     bootmenu_select(last_menu);

@@ -167,6 +167,7 @@
 #define   CPU1900_REG_CB_TEST__M__HAPPY_REBOOT                  0x03   /* do not set Happy, reboot */
 #define   CPU1900_REG_CB_TEST__M__HAPPY_HANG                    0x04   /* do not set Happy, hang */
 #define   CPU1900_REG_CB_TEST__M__HASH_FAIL                     0x05   /* hash check fail */
+#define   CPU1900_REG_CB_TEST__M__BOOT_FAIL                     0x06   /* SeaBIOS payload fails to boot (reset instead of launch payload) */
 #define CPU1900_REG_CB_RES                      (0x104)
 #define  CPU1900_REG_CB_RES__M                          0xff
 #define   CPU1900_REG_CB_RES__M__NONE                           0x00
